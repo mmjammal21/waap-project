@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WAAP | Admin Logs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #0d1117; color: #00ff00; font-family: 'Courier Prime', monospace; padding: 20px; }
+        h1 { border-bottom: 2px solid #00ff00; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #c9d1d9; }
+        th, td { border: 1px solid #30363d; padding: 12px; text-align: left; }
+        th { background-color: #161b22; color: #58a6ff; }
+        tr:nth-child(even) { background-color: #0d1117; }
+        tr:nth-child(odd) { background-color: #161b22; }
+        .danger { color: #ff7b72; font-weight: bold; } /* لون أحمر للهجمات */
+        .safe { color: #3fb950; } /* لون أخضر للطلبات السليمة */
+        .btn-back { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #238636; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🛡️ WAAP Security Logs</h1>
+    <p>Real-time monitoring of blocked threats.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Request Data</th>
+                <th>Prediction</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.time }}</td>
+                <td style="max-width: 400px; word-wrap: break-word;">{{ log.data }}</td>
+                <td class="{{ 'danger' if 'Malicious' in log.pred else 'safe' }}">{{ log.pred }}</td>
+                <td>{{ log.action }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="/logout" class="btn-back">Logout</a>
+</body>
+</html>

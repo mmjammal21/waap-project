@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Bank Account</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+        .navbar { background-color: #0056b3; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .balance-card { background: linear-gradient(135deg, #0056b3, #004494); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .balance-amount { font-size: 2.5em; font-weight: bold; }
+        .transactions { margin-top: 30px; }
+        .transaction-item { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .btn-logout { background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div style="font-weight: bold; font-size: 1.2em;">🏦 SecureBank</div>
+        <a href="/logout" class="btn-logout">Sign Out</a>
+    </div>
+
+    <div class="container">
+        <h1>Welcome, <span style="color: #0056b3;">{{ user }}</span></h1>
+        
+        <div class="balance-card">
+            <div>Current Balance</div>
+            <div class="balance-amount">$12,450.00</div>
+            <div style="font-size: 0.8em; opacity: 0.8;">Account: ****-****-8821</div>
+        </div>
+
+        <div class="transactions">
+            <h3>Recent Transactions</h3>
+            <div class="transaction-item">
+                <span>Amazon.com</span>
+                <span style="color: red;">-$45.00</span>
+            </div>
+            <div class="transaction-item">
+                <span>Salary Deposit</span>
+                <span style="color: green;">+$3,200.00</span>
+            </div>
+            <div class="transaction-item">
+                <span>Starbucks</span>
+                <span style="color: red;">-$5.50</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
