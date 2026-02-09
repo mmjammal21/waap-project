@@ -16,6 +16,11 @@ MODEL_PATH = os.path.join(DATA_DIR, 'waap_model.pkl')
 LABEL_ENCODER_PATH = os.path.join(DATA_DIR, 'label_encoder.pkl')
 LOG_FILE = os.path.join(DATA_DIR, 'waf_logs.txt')
 
+app = Flask(__name__)  
+
+
+redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+
 # التأكد من وجود مجلد الداتا، وإن لم يكن موجوداً ينشئه (للمنطقية)
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
