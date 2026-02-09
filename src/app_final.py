@@ -86,12 +86,10 @@ def waap_pipeline():
         
     if signature_threat:
         log_event(ip, request.path, signature_threat, "BLOCK")
-        # هنا نستدعي صفحة الحظر الجديدة
         return render_template('blocked.html', reason=signature_threat), 403
 
     # 3. فحص الذكاء الاصطناعي (AI Model)
     try:
-        # بيانات وهمية للمحاكاة (يجب استبدالها ببيانات حقيقية في الإنتاج)
         features = pd.DataFrame([{'flow_duration': 0.5, 'header_length': len(str(request.headers)), 'protocol_type': 6, 'duration': 0.2, 'rate': req_count if 'req_count' in locals() else 1}])
         
         if model and hasattr(model, "feature_names_in_"):
@@ -107,7 +105,6 @@ def waap_pipeline():
                     log_event(ip, request.path, f"AI Detected: {ai_verdict}", "BLOCK")
                     return render_template('blocked.html', reason=f"Traffic Anomaly ({ai_verdict})"), 403
     except Exception as e:
-        # في حال حدوث خطأ في الموديل نتجاوز (Fail Open)
         pass 
 
     # 4. حماية الصفحات الإدارية
@@ -148,12 +145,11 @@ def login():
         else:
             error = "Invalid Credentials"
             
-    # استدعاء صفحة الدخول الجديدة
     return render_template('login.html', error=error)
 
+# --- مسار لوحة التحكم (Dashboard) ---
 @app.route('/dashboard')
 def dashboard():
-    # الحماية موجودة مسبقاً في before_request لكن للتأكيد
     if session.get('role') != 'admin': 
         return redirect(url_for('login'))
     
@@ -163,7 +159,8 @@ def dashboard():
     if os.path.exists(LOG_FILE):
         with open(LOG_FILE, 'r') as f:
             lines = f.readlines()
-            # حساب الإحصائيات
+            
+            # 1. حساب الإحصائيات من كل السجلات
             for line in lines:
                 parts = line.strip().split(',')
                 if len(parts) >= 5:
@@ -178,26 +175,47 @@ def dashboard():
                     elif "Rate" in threat or "DDoS" in threat: stats['DDoS'] += 1
                     elif "AI" in threat: stats['AI'] += 1
             
-            # جلب البيانات للعرض (آخر السجلات)
-            for line in reversed(lines):
+            # 2. تجهيز آخر 10 سجلات فقط للعرض المختصر
+            for line in reversed(lines[-10:]):
                 p = line.strip().split(',')
                 if len(p) >= 5:
                     logs.append({
                         'time': p[0],
                         'ip': p[1],
-                        'data': p[2] + " | " + p[3], # دمجنا الرابط والتهديد للعرض
-                        'pred': p[3],
+                        'threat': p[3], # نرسل التهديد فقط
                         'action': p[4]
                     })
     
-    # استدعاء صفحة السجلات (الداشبورد) الجديدة
-    return render_template('logs.html', logs=logs, stats=stats)
+    # استدعاء صفحة الداشبورد الجديدة
+    return render_template('dashboard.html', logs=logs, stats=stats)
+
+# --- مسار السجلات الكاملة (Full Logs) ---
+@app.route('/logs')
+def show_logs():
+    if session.get('role') != 'admin':
+         return redirect(url_for('login'))
+
+    logs_data = []
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE, 'r') as f:
+            lines = f.readlines()[::-1] # عكس الترتيب (الأحدث أولاً)
+            for line in lines:
+                parts = line.strip().split(',')
+                if len(parts) >= 5:
+                    logs_data.append({
+                        'time': parts[0],
+                        'ip': parts[1],
+                        'data': f"URL: {parts[2]} | Threat: {parts[3]}", # دمج التفاصيل
+                        'action': parts[4]
+                    })
+
+    # استدعاء صفحة السجلات التفصيلية
+    return render_template('logs.html', logs=logs_data)
 
 @app.route('/user_home')
 def user_home():
     if 'user' not in session: 
         return redirect(url_for('login'))
-    # استدعاء صفحة البنك الجديدة
     return render_template('home.html', user=session['user'])
 
 @app.route('/logout')
@@ -206,5 +224,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    # تشغيل التطبيق
     app.run(host='0.0.0.0', port=5000, debug=False)
