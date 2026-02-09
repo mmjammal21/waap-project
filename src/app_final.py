@@ -17,7 +17,7 @@ LABEL_ENCODER_PATH = os.path.join(DATA_DIR, 'label_encoder.pkl')
 LOG_FILE = os.path.join(DATA_DIR, 'waf_logs.txt')
 
 app = Flask(__name__)  
-
+app.secret_key = 'malik_secret_key_123'
 
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
 
