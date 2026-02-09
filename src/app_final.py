@@ -6,14 +6,19 @@ import os
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 
-# --- 1. إعدادات النظام ---
-BASE_PATH = '/home/malik/graduation_project/data'
-MODEL_PATH = os.path.join(BASE_PATH, 'waap_model.pkl')
-LABEL_ENCODER_PATH = os.path.join(BASE_PATH, 'label_encoder.pkl')
-LOG_FILE = os.path.join(BASE_PATH, 'waf_logs.txt')
 
-app = Flask(__name__)
-app.secret_key = 'super_secret_ui_v5_pro_final'
+# --- 1. إعدادات النظام (Dynamic Paths) ---
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+
+MODEL_PATH = os.path.join(DATA_DIR, 'waap_model.pkl')
+LABEL_ENCODER_PATH = os.path.join(DATA_DIR, 'label_encoder.pkl')
+LOG_FILE = os.path.join(DATA_DIR, 'waf_logs.txt')
+
+# التأكد من وجود مجلد الداتا، وإن لم يكن موجوداً ينشئه (للمنطقية)
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
 # --- 2. تهيئة المحرك ---
 
