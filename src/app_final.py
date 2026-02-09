@@ -58,8 +58,13 @@ def waap_pipeline():
     ip = request.remote_addr
     decoded_path = unquote(request.full_path).lower() if request.full_path else ""
 
+
     # 1. فحص Rate Limit (Redis)
-    if r:
+    # التعديل: إذا كان المستخدم "أدمن"، لا تفحص الـ Rate Limit
+
+    is_admin = session.get('role') == 'admin'
+
+    if r and not is_admin:  # <--- أضفنا (and not is_admin)
         try:
             req_count = r.incr(ip)
             if req_count == 1: r.expire(ip, 60)
@@ -67,7 +72,6 @@ def waap_pipeline():
                 log_event(ip, request.path, "Rate Limit (DDoS)", "BLOCK")
                 return render_template('blocked.html', reason="DDoS Attack Detected"), 429
         except: pass
-
     # تجهيز البيانات للفحص
     form_data = ""
     if request.method == 'POST':
