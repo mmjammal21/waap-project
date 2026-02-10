@@ -4,7 +4,8 @@ import joblib
 import pandas as pd
 import redis
 from flask import Flask, request, render_template, redirect, url_for, session
-from datetime import datetime
+from urllib.parse import unquote  # 👈 مكتبة فك تشفير الروابط
+from datetime import datetime, timedelta # 👈 تعديل 1: إضافة timedelta للوقت
 
 # --- إعدادات التطبيق ---
 app = Flask(__name__)
@@ -43,10 +44,14 @@ def get_client_ip():
         return request.headers.get('X-Forwarded-For').split(',')[0].strip()
     return request.remote_addr
 
-# --- دالة 2: تسجيل السجلات (Log Event) ---
+# --- دالة 2: تسجيل السجلات (تم تعديل التوقيت للأردن) ---
 def log_event(ip, url, threat_type, action):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = f"{timestamp},{ip},{url},{threat_type},{action}\n"
+    # 👈 تعديل 2: ضبط التوقيت على الأردن (UTC + 3)
+    jordan_time = datetime.utcnow() + timedelta(hours=3)
+    timestamp = jordan_time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # استخدام الفاصل |
+    log_entry = f"{timestamp}|{ip}|{url}|{threat_type}|{action}\n"
     
     # كتابة السجل في ملف
     try:
@@ -99,19 +104,29 @@ def waap_pipeline():
         except:
             pass # في حال فشل Redis لا نوقف الموقع
 
-    # 4. تجهيز البيانات للفحص
-    url = request.path
-    # التعامل مع البيانات بأمان لتجنب الأخطاء
+    # 4. تجهيز البيانات للفحص (قراءة الرابط كاملاً وفك التشفير)
+    raw_path = request.full_path if request.query_string else request.path
+    url = unquote(raw_path) 
+
     try:
         body = request.get_data(as_text=True) or ""
     except:
         body = ""
         
-    full_text = (url + body).lower()
+    full_text = (url + " " + body).lower()
 
-    # 5. الفحص السريع (Signatures) - SQLi & XSS
-    sql_pattern = r"(\bunion\b.*\bselect\b|\bselect\b.*\bfrom\b|\bdrop\b.*\btable\b|' OR 1=1|admin' --)"
+    # 5. الفحص السريع (Signatures) - SQLi & XSS & LFI
+    # LFI Pattern: كشف محاولات الوصول للملفات
+    lfi_pattern = r"(\.\./|\.\.\\|/etc/passwd|/bin/sh|cmd=)"
+    
+    # SQL Pattern: كشف الحقن بمرونة أكثر
+    sql_pattern = r"(\bunion\b.*\bselect\b|\bselect\b.*\bfrom\b|\bdrop\b.*\btable\b|'?\s*OR\s+1=1|admin'\s*--)"
+    
     xss_pattern = r"(<script>|javascript:|onerror=|onload=|alert\()"
+
+    if re.search(lfi_pattern, full_text, re.IGNORECASE):
+        log_event(ip, url, "Path Traversal / LFI Attempt", "BLOCK")
+        return render_template('blocked.html', reason="Illegal System Access Detected"), 403
 
     if re.search(sql_pattern, full_text, re.IGNORECASE):
         log_event(ip, url, "SQL Injection (Signature)", "BLOCK")
@@ -138,10 +153,6 @@ def waap_pipeline():
         except Exception as e:
             print(f"AI Check Error: {e}")
 
-    # إذا مر من كل الفحوصات -> زيارة نظيفة
-    # (اختياري: لا نسجل كل زيارة نظيفة لتوفير المساحة، أو نسجلها للمراقبة)
-    # log_event(ip, url, "Clean Traffic", "ALLOW") 
-
 # ==========================================
 # 🌐 صفحات الموقع (Routes) 🌐
 # ==========================================
@@ -150,31 +161,30 @@ def waap_pipeline():
 def index():
     return redirect(url_for('login'))
 
-# --- صفحة تسجيل الدخول (المعدلة والمصلحة) ---
+# --- صفحة تسجيل الدخول ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    real_ip = get_client_ip() # استخدام الـ IP الحقيقي
+    real_ip = get_client_ip()
 
     if request.method == 'POST':
-        user = request.form.get('user')
-        password = request.form.get('pass')
+        user = request.form.get('user', '').strip()
+        password = request.form.get('pass', '').strip()
 
-        # استخدام بيانات ثابتة لتجنب الأخطاء (Hardcoded)
+        # 1. حالة الأدمن
         if user == 'admin' and password == '123':
             session['user'] = user
             session['role'] = 'admin'
             log_event(real_ip, "/login", "Admin Login Success", "ALLOW")
             return redirect(url_for('dashboard'))
 
-
-          # --- 2. حالة المستخدم العادي (يدخل على صفحة المستخدم) --- # 👈 هذا الإضافة الجديدة
+        # 2. حالة المستخدم العادي
         elif user == 'user' and password == '123':
             session['user'] = user
             session['role'] = 'user'
             log_event(real_ip, "/login", "User Login Success", "ALLOW")
             return redirect(url_for('user_home'))
 
-
+        # 3. بيانات خاطئة
         else:
             log_event(real_ip, "/login", "Failed Login Attempt", "WARNING")
             return render_template('login.html', error="Invalid Credentials")
@@ -187,16 +197,31 @@ def dashboard():
     if session.get('role') != 'admin':
         return redirect(url_for('login'))
     
-    # قراءة السجلات لعرضها
     logs = []
     stats = {'SQLi': 0, 'XSS': 0, 'DDoS': 0, 'AI': 0, 'BLOCK': 0, 'ALLOW': 0}
     
     if os.path.exists(LOG_FILE):
         with open(LOG_FILE, 'r') as f:
-            # قراءة آخر 50 سطر فقط للأداء
-            lines = f.readlines()[-50:] 
-            for line in reversed(lines): # الأحدث أولاً
-                p = line.strip().split(',')
+            all_lines = f.readlines()
+            
+            # 1️⃣ حساب الإحصائيات (نقرأ الملف كامل ليكون الرسم البياني دقيقاً)
+            for line in all_lines:
+                p = line.strip().split('|')
+                if len(p) >= 5:
+                    threat_val = p[3]
+                    if 'SQL' in threat_val: stats['SQLi'] += 1
+                    elif 'XSS' in threat_val: stats['XSS'] += 1
+                    elif 'DDoS' in threat_val: stats['DDoS'] += 1
+                    elif 'AI' in threat_val: stats['AI'] += 1
+                    
+                    if 'BLOCK' in p[4]: stats['BLOCK'] += 1
+                    else: stats['ALLOW'] += 1
+
+            # 2️⃣ تجهيز الجدول (نأخذ آخر 15 سجل فقط)
+            # 👈 تعديل 3: عرض آخر 15 فقط في الجدول ليكون مرتباً
+            recent_lines = all_lines[-15:] 
+            for line in reversed(recent_lines):
+                p = line.strip().split('|')
                 if len(p) >= 5:
                     logs.append({
                         'time': p[0],
@@ -204,24 +229,27 @@ def dashboard():
                         'threat': p[3],
                         'action': p[4]
                     })
-                    
-                    # تجميع الإحصائيات
-                    if 'SQL' in p[3]: stats['SQLi'] += 1
-                    elif 'XSS' in p[3]: stats['XSS'] += 1
-                    elif 'DDoS' in p[3]: stats['DDoS'] += 1
-                    elif 'AI' in p[3]: stats['AI'] += 1
-                    
-                    if 'BLOCK' in p[4]: stats['BLOCK'] += 1
-                    else: stats['ALLOW'] += 1
 
     return render_template('dashboard.html', logs=logs, stats=stats)
 
-# --- صفحة المستخدم (User Home) ---
+# --- صفحة المستخدم (User Home - محدثة) ---
 @app.route('/user_home')
 def user_home():
     if 'user' not in session: 
         return redirect(url_for('login'))
-    return render_template('home.html', user=session['user'])
+    
+    # 👈 تعديل 4: إرسال بيانات الاتصال الحقيقية للصفحة العالمية
+    ip = get_client_ip()
+    
+    # التأكد من وجود user_agent قبل استدعاء الخصائص لتجنب الأخطاء
+    platform = "Unknown"
+    browser = "Unknown"
+    
+    if request.user_agent:
+        platform = request.user_agent.platform.capitalize() if request.user_agent.platform else "Unknown"
+        browser = request.user_agent.browser.capitalize() if request.user_agent.browser else "Unknown"
+
+    return render_template('home.html', user=session['user'], ip=ip, os=platform, browser=browser)
 
 # --- تسجيل الخروج ---
 @app.route('/logout')
@@ -240,12 +268,14 @@ def show_logs():
         with open(LOG_FILE, 'r') as f:
             lines = f.readlines()[::-1]
             for line in lines:
-                parts = line.strip().split(',')
+                parts = line.strip().split('|')
                 if len(parts) >= 5:
+                    # 👈 تعديل 5: فصل البيانات لتناسب صفحة Logs الجديدة
                     logs_data.append({
                         'time': parts[0],
                         'ip': parts[1],
-                        'data': f"URL: {parts[2]} | Threat: {parts[3]}",
+                        'url': parts[2],      # مفصول لاستخدامه في التصميم
+                        'threat': parts[3],   # مفصول لتلوينه
                         'action': parts[4]
                     })
 
@@ -253,5 +283,4 @@ def show_logs():
 
 # تشغيل التطبيق
 if __name__ == '__main__':
-    # وضع debug=True يساعدك في رؤية الأخطاء في المتصفح
     app.run(host='0.0.0.0', port=5000, debug=True)

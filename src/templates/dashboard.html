@@ -2,50 +2,44 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard | Threat Monitor</title>
+    <title>Admin Dashboard | WAAP</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --text: #e2e8f0; --accent: #38bdf8; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         .logo h1 { margin: 0; font-size: 24px; color: var(--accent); letter-spacing: -1px; }
-        .logo span { font-size: 14px; color: #94a3b8; font-weight: normal; margin-left: 10px; }
-        .logout-btn { background: #ef4444; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-size: 14px; transition: 0.2s; }
-        .logout-btn:hover { background: #dc2626; }
-
-        /* البطاقات الإحصائية */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: var(--panel); padding: 20px; border-radius: 10px; border: 1px solid #334155; }
-        .stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; }
-        .stat-card .value { font-size: 32px; font-weight: bold; color: white; }
-        .stat-card.ai { border-left: 4px solid #a855f7; } /* بنفسجي للذكاء */
-        .stat-card.waf { border-left: 4px solid #ef4444; } /* أحمر للـ WAF */
-
-        /* الجدول والسجلات */
-        .logs-panel { background: var(--panel); border-radius: 10px; border: 1px solid #334155; overflow: hidden; }
-        .panel-header { padding: 20px; background: #020617; display: flex; justify-content: space-between; align-items: center; }
+        .btn-logs { background: #334155; color: #fff; padding: 8px 16px; text-decoration: none; border-radius: 6px; margin-right: 10px; transition: 0.3s; }
+        .btn-logs:hover { background: #475569; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+        .btn-logout { background: #ef4444; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; }
+        
+        /* Grid Layout */
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        
+        /* Stats Cards */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: var(--panel); padding: 15px; border-radius: 10px; border: 1px solid #334155; text-align: center; }
+        .stat-card h3 { font-size: 12px; color: #94a3b8; text-transform: uppercase; margin: 0 0 5px 0; }
+        .stat-card .value { font-size: 24px; font-weight: bold; }
+        
+        /* Chart Section */
+        .chart-container { background: var(--panel); padding: 20px; border-radius: 10px; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; height: 300px; }
+        
+        /* Table Section */
+        .table-container { grid-column: 1 / -1; background: var(--panel); border-radius: 10px; border: 1px solid #334155; overflow: hidden; margin-top: 20px; }
+        .panel-header { padding: 15px 20px; background: #020617; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
+        
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { background: #0f172a; padding: 15px; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
-        td { padding: 15px; border-bottom: 1px solid #334155; font-size: 14px; }
-        tr:last-child td { border-bottom: none; }
+        th { background: #0f172a; padding: 12px 15px; font-size: 11px; text-transform: uppercase; color: #94a3b8; }
+        td { padding: 12px 15px; border-bottom: 1px solid #334155; font-size: 13px; }
         
-        .mono { font-family: 'JetBrains Mono', monospace; color: #cbd5e1; }
-
-        /* التصنيف اللوني الذكي (The Magic Part) */
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
-        
-        /* 1. الذكاء الاصطناعي (بنفسجي) */
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
         .badge-ai { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid #a855f7; }
-        
-        /* 2. الهجمات المعروفة WAF (أحمر) */
         .badge-sig { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
-        
-        /* 3. الهجمات المسموحة (أخضر) */
-        .badge-allow { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid #22c55e; }
-        
-        /* 4. DDoS (برتقالي غامق) */
         .badge-ddos { background: rgba(249, 115, 22, 0.2); color: #fdba74; border: 1px solid #f97316; }
+        .badge-ok { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid #22c55e; }
 
     </style>
 </head>
@@ -53,78 +47,72 @@
 
     <div class="header">
         <div class="logo">
-            <h1>WAAP Dashboard <span>v2.0 (Hybrid Mode)</span></h1>
+            <h1>WAAP Dashboard <span style="font-size:12px; color:#64748b;">Live Monitor</span></h1>
         </div>
         <div>
-            <a href="/logs" style="color:#38bdf8; margin-right:20px; text-decoration:none;">View Full Logs</a>
-            <a href="/logout" class="logout-btn">Logout</a>
+            <a href="/logs" class="btn-logs">📂 Full Logs History</a>
+            <a href="/logout" class="btn-logout">Logout</a>
         </div>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card ai">
-            <h3>AI Detections</h3>
-            <div class="value">{{ stats['AI'] }}</div>
+    <div class="stats-row">
+        <div class="stat-card" style="border-bottom: 3px solid #a855f7;"><h3>AI Detections</h3><div class="value">{{ stats['AI'] }}</div></div>
+        <div class="stat-card" style="border-bottom: 3px solid #ef4444;"><h3>WAF Blocks</h3><div class="value">{{ stats['SQLi'] + stats['XSS'] }}</div></div>
+        <div class="stat-card" style="border-bottom: 3px solid #f97316;"><h3>DDoS Attempts</h3><div class="value">{{ stats['DDoS'] }}</div></div>
+        <div class="stat-card" style="border-bottom: 3px solid #22c55e;"><h3>Safe Traffic</h3><div class="value">{{ stats['ALLOW'] }}</div></div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="table-container" style="margin-top:0; height: 300px; overflow-y: auto;">
+            <div class="panel-header"><h3>Recent Activity (Last 15)</h3></div>
+            <table>
+                <thead><tr><th>Time</th><th>IP</th><th>Threat Type</th><th>Action</th></tr></thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td style="font-family:'JetBrains Mono'; color:#cbd5e1;">{{ log.time }}</td>
+                        <td>{{ log.ip }}</td>
+                        <td>
+                            {% if 'AI' in log.threat %}<span class="badge badge-ai">🤖 {{ log.threat }}</span>
+                            {% elif 'SQL' in log.threat or 'XSS' in log.threat or 'LFI' in log.threat %}<span class="badge badge-sig">🔥 {{ log.threat }}</span>
+                            {% elif 'DDoS' in log.threat %}<span class="badge badge-ddos">⚡ {{ log.threat }}</span>
+                            {% else %}<span class="badge badge-ok">✅ {{ log.threat }}</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if 'BLOCK' in log.action %}<span style="color:#ef4444; font-weight:bold;">BLOCKED</span>
+                            {% else %}<span style="color:#22c55e; font-weight:bold;">ALLOWED</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        <div class="stat-card waf">
-            <h3>WAF Blocks (SQL/XSS)</h3>
-            <div class="value">{{ stats['SQLi'] + stats['XSS'] }}</div>
-        </div>
-        <div class="stat-card">
-            <h3>DDoS Attempts</h3>
-            <div class="value">{{ stats['DDoS'] }}</div>
-        </div>
-        <div class="stat-card">
-            <h3>Total Blocked</h3>
-            <div class="value" style="color: #ef4444;">{{ stats['BLOCK'] }}</div>
+
+        <div class="chart-container">
+            <canvas id="threatChart"></canvas>
         </div>
     </div>
 
-    <div class="logs-panel">
-        <div class="panel-header">
-            <h3>🛡️ Live Threat Monitor</h3>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>IP Address</th>
-                    <th>Detection Source (Layer)</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in logs %}
-                <tr>
-                    <td class="mono">{{ log.time }}</td>
-                    <td class="mono">{{ log.ip }}</td>
-                    
-                    <td>
-                        {% if 'AI' in log.threat %}
-                            <span class="badge badge-ai">🤖 {{ log.threat }}</span>
-                        {% elif 'Signature' in log.threat or 'SQL' in log.threat or 'XSS' in log.threat or 'LFI' in log.threat %}
-                            <span class="badge badge-sig">🔥 {{ log.threat }}</span>
-                        {% elif 'DDoS' in log.threat %}
-                            <span class="badge badge-ddos">⚡ {{ log.threat }}</span>
-                        {% elif 'Success' in log.threat %}
-                            <span class="badge badge-allow">✅ {{ log.threat }}</span>
-                        {% else %}
-                            <span class="badge">{{ log.threat }}</span>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        {% if 'BLOCK' in log.action %}
-                            <span style="color:#ef4444; font-weight:bold;">BLOCKED</span>
-                        {% else %}
-                            <span style="color:#22c55e; font-weight:bold;">ALLOWED</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
+    <script>
+        const ctx = document.getElementById('threatChart').getContext('2d');
+        const threatChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['AI Detected', 'SQL/XSS/LFI', 'DDoS', 'Safe'],
+                datasets: [{
+                    data: [{{ stats['AI'] }}, {{ stats['SQLi'] + stats['XSS'] }}, {{ stats['DDoS'] }}, {{ stats['ALLOW'] }}],
+                    backgroundColor: ['#a855f7', '#ef4444', '#f97316', '#22c55e'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 10 } } }
+                }
+            }
+        });
+    </script>
 </body>
 </html>

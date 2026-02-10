@@ -2,137 +2,169 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Bank | Account Summary</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Secure Workspace | WAAP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f7fa;
-            margin: 0;
-            padding: 0;
-            color: #333;
+        :root { --primary: #00f2ff; --secondary: #00ff88; --bg: #050505; --card-bg: rgba(20, 20, 35, 0.6); }
+        body { margin: 0; background-color: var(--bg); color: #fff; font-family: 'Rajdhani', sans-serif; overflow-x: hidden; }
+        
+        /* خلفية شبكية متحركة */
+        body::before {
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px; z-index: -1;
         }
-        .navbar {
-            background-color: #ffffff;
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        .brand { font-size: 24px; font-weight: 700; color: #0056b3; }
-        .user-info { display: flex; align-items: center; gap: 20px; }
-        .username { font-weight: 600; color: #555; }
-        .btn-logout {
-            background-color: #ffebee;
-            color: #d32f2f;
-            padding: 10px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
+
+        .navbar { display: flex; justify-content: space-between; padding: 20px 40px; align-items: center; border-bottom: 1px solid rgba(0, 242, 255, 0.1); }
+        .brand { font-size: 24px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; }
+        .logout-btn { color: #ff4d4d; text-decoration: none; border: 1px solid #ff4d4d; padding: 8px 20px; border-radius: 4px; transition: 0.3s; font-weight: 600; }
+        .logout-btn:hover { background: #ff4d4d; color: #000; box-shadow: 0 0 15px #ff4d4d; }
+
+        .container { max-width: 1200px; margin: 40px auto; padding: 20px; }
+        
+        /* الترحيب */
+        .hero { text-align: center; margin-bottom: 50px; }
+        .hero h1 { font-size: 48px; margin: 0; text-shadow: 0 0 20px rgba(0, 242, 255, 0.5); }
+        .hero p { color: #aaa; font-size: 18px; margin-top: 10px; }
+        .status-badge { display: inline-flex; align-items: center; background: rgba(0, 255, 136, 0.1); color: var(--secondary); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--secondary); margin-top: 15px; font-family: 'Share Tech Mono', monospace; }
+        .blink { width: 8px; height: 8px; background: var(--secondary); border-radius: 50%; margin-right: 10px; animation: pulse 1.5s infinite; }
+
+        /* الشبكة (Grid) */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+        
+        .card {
+            background: var(--card-bg); border: 1px solid rgba(0, 242, 255, 0.2); padding: 30px;
+            border-radius: 15px; backdrop-filter: blur(10px); position: relative; overflow: hidden;
             transition: 0.3s;
         }
-        .btn-logout:hover { background-color: #ffcdd2; }
+        .card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); }
+        
+        .card h3 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 20px; }
+        
+        /* تفاصيل الجلسة */
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 5px; }
+        .label { color: #888; font-size: 14px; }
+        .value { font-family: 'Share Tech Mono', monospace; color: #fff; }
 
-        .container {
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-        .welcome-msg { font-size: 28px; margin-bottom: 30px; }
-        .balance-card {
-            background: linear-gradient(135deg, #0061f2, #00a8e8);
-            color: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 97, 242, 0.2);
-            margin-bottom: 40px;
-        }
-        .balance-title { font-size: 16px; opacity: 0.9; }
-        .balance-amount { font-size: 48px; font-weight: 700; margin: 10px 0; }
-        .account-number { font-size: 14px; opacity: 0.8; letter-spacing: 1px; }
+        /* طبقات الحماية */
+        .layer { display: flex; align-items: center; margin-bottom: 15px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px; }
+        .layer-icon { width: 40px; height: 40px; background: rgba(0, 242, 255, 0.1); display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--primary); margin-right: 15px; }
+        .layer-info h4 { margin: 0; font-size: 16px; }
+        .layer-info span { font-size: 12px; color: var(--secondary); }
+        .check { margin-left: auto; color: var(--secondary); }
 
-        .transactions-section h3 { font-size: 20px; margin-bottom: 20px; }
-        .transactions-list {
-            background-color: white;
-            border-radius: 16px;
-            padding: 10px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        /* الرادار */
+        .radar-container { height: 150px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .radar { width: 100px; height: 100px; border: 2px solid rgba(0, 242, 255, 0.3); border-radius: 50%; position: relative; }
+        .radar::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 50%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary));
+            transform-origin: 0 0; animation: scan 2s linear infinite;
         }
-        .transaction-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .transaction-item:last-child { border-bottom: none; }
-        .t-icon {
-            width: 50px; height: 50px; background-color: #eef2f7;
-            border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 20px;
-        }
-        .t-details { flex-grow: 1; }
-        .t-title { font-weight: 600; font-size: 16px; }
-        .t-date { font-size: 14px; color: #999; }
-        .t-amount { font-weight: 700; font-size: 18px; }
-        .negative { color: #d32f2f; }
-        .positive { color: #2e7d32; }
+        .radar-dot { position: absolute; width: 6px; height: 6px; background: #ff4d4d; border-radius: 50%; top: 30%; right: 20%; opacity: 0; animation: appear 2s infinite 0.5s; }
+
+        @keyframes pulse { 0% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); } 100% { opacity: 1; } }
+        @keyframes scan { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes appear { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
     </style>
 </head>
 <body>
-    <div class="navbar">
-        <div class="brand">🏦 SecureBank</div>
-        <div class="user-info">
-            <span class="username">Welcome, {{ user }}</span>
-            <a href="/logout" class="btn-logout">Sign Out</a>
+
+    <nav class="navbar">
+        <div class="brand"><i class="fas fa-shield-alt"></i> WAAP Gateway</div>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <span style="font-family: 'Share Tech Mono'; color: var(--primary);">User: {{ user }}</span>
+            <a href="/logout" class="logout-btn">DISCONNECT</a>
         </div>
-    </div>
+    </nav>
 
     <div class="container">
-        <h1 class="welcome-msg">Good morning!</h1>
         
-        <div class="balance-card">
-            <div class="balance-title">Total Balance</div>
-            <div class="balance-amount">$14,250.75</div>
-            <div class="account-number">**** **** **** 8821</div>
-        </div>
-
-        <div class="transactions-section">
-            <h3>Recent Activity</h3>
-            <div class="transactions-list">
-                <div class="transaction-item">
-                    <div style="display: flex; align-items: center;">
-                        <div class="t-icon">🛒</div>
-                        <div class="t-details">
-                            <div class="t-title">Amazon Prime</div>
-                            <div class="t-date">Today, 10:30 AM</div>
-                        </div>
-                    </div>
-                    <div class="t-amount negative">-$12.99</div>
-                </div>
-                <div class="transaction-item">
-                    <div style="display: flex; align-items: center;">
-                        <div class="t-icon">💰</div>
-                        <div class="t-details">
-                            <div class="t-title">Salary Deposit</div>
-                            <div class="t-date">Yesterday</div>
-                        </div>
-                    </div>
-                    <div class="t-amount positive">+$3,500.00</div>
-                </div>
-                <div class="transaction-item">
-                    <div style="display: flex; align-items: center;">
-                        <div class="t-icon">☕</div>
-                        <div class="t-details">
-                            <div class="t-title">Starbucks Coffee</div>
-                            <div class="t-date">Feb 12, 2026</div>
-                        </div>
-                    </div>
-                    <div class="t-amount negative">-$5.40</div>
-                </div>
+        <div class="hero">
+            <h1>SECURE SESSION ESTABLISHED</h1>
+            <p>Your connection is being monitored and protected by Hybrid AI Sentinel.</p>
+            <div class="status-badge">
+                <div class="blink"></div> ENCRYPTED TUNNEL ACTIVE
             </div>
         </div>
+
+        <div class="grid">
+            
+            <div class="card">
+                <h3><i class="fas fa-network-wired"></i> Connection Intelligence</h3>
+                <div style="margin-top: 20px;">
+                    <div class="info-row">
+                        <span class="label">SOURCE IP</span>
+                        <span class="value" style="color:var(--primary);">{{ ip }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">OPERATING SYSTEM</span>
+                        <span class="value">{{ os }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">BROWSER AGENT</span>
+                        <span class="value">{{ browser }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">SESSION ID</span>
+                        <span class="value">SEC-{{ range(1000, 9999) | random }}</span>
+                    </div>
+                    <div class="info-row" style="border:none;">
+                        <span class="label">LATENCY</span>
+                        <span class="value" style="color:var(--secondary);">~12ms (Optimal)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-layer-group"></i> Active Defense Layers</h3>
+                <div style="margin-top: 20px;">
+                    <div class="layer">
+                        <div class="layer-icon"><i class="fas fa-robot"></i></div>
+                        <div class="layer-info">
+                            <h4>AI Anomaly Detection</h4>
+                            <span>Random Forest Model Online</span>
+                        </div>
+                        <i class="fas fa-check-circle check"></i>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-icon"><i class="fas fa-code"></i></div>
+                        <div class="layer-info">
+                            <h4>Signature WAF</h4>
+                            <span>SQLi & XSS Filters Active</span>
+                        </div>
+                        <i class="fas fa-check-circle check"></i>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="layer-info">
+                            <h4>DDoS Mitigation</h4>
+                            <span>Rate Limiting Enforced</span>
+                        </div>
+                        <i class="fas fa-check-circle check"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-radar"></i> Threat Monitor</h3>
+                <div class="radar-container">
+                    <div class="radar"></div>
+                    <div class="radar-dot"></div> <div style="position: absolute; bottom: 10px; font-family: 'Share Tech Mono'; font-size: 12px; color: #888;">
+                        Scanning incoming traffic packets...
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 14px; color: var(--secondary);">
+                    No immediate threats detected targeting your session.
+                </div>
+            </div>
+
+        </div>
     </div>
+
 </body>
 </html>

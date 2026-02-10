@@ -2,100 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WAAP | Full Logs</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>System Logs | WAAP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-dark: #0d1117;
-            --bg-card: #161b22;
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --accent-blue: #58a6ff;
-            --accent-red: #ff7b72;
-            --accent-green: #3fb950;
-            --border-color: #30363d;
-        }
-        body {
-            font-family: 'Nunito Sans', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .header h1 { margin: 0; }
+        :root { --bg: #050505; --text: #00f2ff; --border: #333; --row-hover: rgba(0, 242, 255, 0.05); }
+        body { background-color: var(--bg); color: #fff; font-family: 'Fira Code', monospace; padding: 40px; }
+
+        .container { max-width: 1200px; margin: 0 auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 0 20px rgba(0, 242, 255, 0.1); overflow: hidden; }
+        
+        .header { background: #0a0a0a; padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 20px; color: var(--text); text-transform: uppercase; letter-spacing: 2px; }
+        
+        /* زر العودة الخرافي */
         .btn-back {
-            background-color: var(--bg-card);
-            color: var(--accent-blue);
-            padding: 10px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            border: 1px solid var(--accent-blue);
-            font-weight: 600;
+            background: transparent; color: var(--text); border: 1px solid var(--text);
+            padding: 10px 20px; text-decoration: none; font-size: 14px; text-transform: uppercase;
+            transition: 0.3s; position: relative; overflow: hidden;
         }
-        .btn-back:hover { background-color: var(--accent-blue); color: var(--bg-dark); }
-        .logs-table-container {
-            background-color: var(--bg-card);
-            padding: 25px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            overflow-x: auto;
-        }
-        .logs-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        .logs-table th, .logs-table td {
-            text-align: left;
-            padding: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .logs-table th { color: var(--text-secondary); }
-        .data-cell {
-            max-width: 400px;
-            word-wrap: break-word;
-            font-family: 'Courier Prime', monospace;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        .status-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-        .badge-blocked { background-color: rgba(255, 123, 114, 0.2); color: var(--accent-red); }
-        .badge-allowed { background-color: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+        .btn-back:hover { background: var(--text); color: #000; box-shadow: 0 0 15px var(--text); }
+
+        .logs-table-wrapper { max-height: 80vh; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        
+        th { position: sticky; top: 0; background: #111; padding: 15px; text-align: left; color: #666; font-size: 12px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px 15px; border-bottom: 1px solid #1a1a1a; font-size: 13px; color: #ccc; }
+        tr:hover { background: var(--row-hover); }
+
+        /* تلوين الحالات */
+        .status-block { color: #ff4d4d; text-shadow: 0 0 5px #ff4d4d; }
+        .status-allow { color: #00ff00; text-shadow: 0 0 5px #00ff00; }
+        
+        .threat-ai { color: #d8b4fe; }
+        .threat-sql { color: #ffab91; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text); }
     </style>
 </head>
 <body>
+
     <div class="container">
         <div class="header">
-            <h1>📜 All Security Logs</h1>
-            <a href="/dashboard" class="btn-back">← Back to Dashboard</a>
+            <h1>>> System_Security_Logs</h1>
+            <a href="/dashboard" class="btn-back"> < Return_to_Dashboard </a>
         </div>
 
-        <div class="logs-table-container">
-            <table class="logs-table">
+        <div class="logs-table-wrapper">
+            <table>
                 <thead>
                     <tr>
-                        <th>Timestamp</th>
-                        <th>IP Address</th>
-                        <th>Request Details & Threat</th>
-                        <th>Status</th>
+                        <th>TIMESTAMP (JOR)</th>
+                        <th>SOURCE IP</th>
+                        <th>REQUEST URL</th>
+                        <th>DETECTION TYPE</th>
+                        <th>STATUS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -103,13 +66,24 @@
                     <tr>
                         <td>{{ log.time }}</td>
                         <td>{{ log.ip }}</td>
-                        <td class="data-cell">{{ log.data }}</td>
-                        <td><span class="status-badge {{ 'badge-blocked' if log.action == 'BLOCK' else 'badge-allowed' }}">{{ log.action }}</span></td>
+                        <td style="color:#888; max-width: 300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ log.url }}</td>
+                        
+                        <td>
+                            {% if 'AI' in log.threat %}<span class="threat-ai">[🤖 AI_MODEL]</span>
+                            {% elif 'SQL' in log.threat or 'XSS' in log.threat %}<span class="threat-sql">[🔥 SIGNATURE]</span>
+                            {% elif 'DDoS' in log.threat %}<span style="color:orange">[⚡ RATE_LIMIT]</span>
+                            {% else %}<span style="color:#666">[NORMAL]</span> {{ log.threat }}{% endif %}
+                        </td>
+
+                        <td class="{{ 'status-block' if 'BLOCK' in log.action else 'status-allow' }}">
+                            {{ log.action }}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
 </body>
 </html>
