@@ -147,7 +147,7 @@ def waap_pipeline():
             confidence = rf_model.predict_proba(input_data).max()
 
             # 👈 تعديل مهم: خفضنا النسبة من 0.85 إلى 0.55 ليصبح الموديل حساساً للعرض
-            if prediction == 1 and confidence > 0.55: 
+            if prediction == 1 and confidence > 0.35: 
                 log_event(ip, url, f"AI Detected Attack ({confidence:.2f})", "BLOCK")
                 return render_template('blocked.html', reason="AI Model Detected Malicious Activity"), 403
         except Exception as e:
