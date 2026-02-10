@@ -6,6 +6,14 @@ import os
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 
+
+# دالة لجلب الـ IP الحقيقي سواء كنا محلياً أو على سيرفر رندر
+def get_client_ip():
+    if request.headers.get('X-Forwarded-For'):
+        # السيرفر يعطي قائمة IPs، الأول هو الحقيقي
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    return request.remote_addr
+
 # --- 1. إعدادات النظام (Dynamic Paths) ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
@@ -55,7 +63,7 @@ def waap_pipeline():
     if request.path.startswith('/static') or request.path.startswith('/logout') or request.path.startswith('/favicon.ico'):
         return
 
-    ip = request.remote_addr
+    ip = get_client_ip()     
     decoded_path = unquote(request.full_path).lower() if request.full_path else ""
 
 
@@ -126,31 +134,31 @@ def waap_pipeline():
 
 # --- 5. المسارات (Routes) ---
 
-@app.route('/')
-def index():
-    return redirect(url_for('login'))
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    error = None
+    # 1️⃣ أول خطوة: نجلب الـ IP الحقيقي ونخزنه
+    real_ip = get_client_ip() 
+
     if request.method == 'POST':
         user = request.form.get('user')
         password = request.form.get('pass')
-        
-        if user == 'admin' and password == 'admin123':
-            session['user'] = 'admin'
-            session['role'] = 'admin'
-            return redirect(url_for('dashboard'))
-            
-        elif user == 'user' and password == 'user123':
-            session['user'] = 'user'
-            session['role'] = 'user'
-            return redirect(url_for('user_home'))
-        else:
-            error = "Invalid Credentials"
-            
-    return render_template('login.html', error=error)
 
+        # ... (أكواد التحقق من الباسوورد) ...
+
+        if user == USERname and password == PASSword:
+            session['user'] = user
+            session['role'] = 'admin'
+            
+            # 2️⃣ عند تسجيل الدخول الناجح -> نستخدم real_ip
+            log_event(real_ip, "/login", "Admin Login", "SUCCESS") # 👈 عدل هنا
+            return redirect(url_for('dashboard'))
+        
+        else:
+            # 3️⃣ عند فشل الدخول -> نستخدم real_ip
+            log_event(real_ip, "/login", "Failed Login Attempt", "WARNING") # 👈 عدل هنا
+            return render_template('login.html', error="Invalid Credentials")
+
+    return render_template('login.html')
 # --- مسار لوحة التحكم (Dashboard) ---
 @app.route('/dashboard')
 def dashboard():
