@@ -165,6 +165,16 @@ def login():
             session['role'] = 'admin'
             log_event(real_ip, "/login", "Admin Login Success", "ALLOW")
             return redirect(url_for('dashboard'))
+
+
+          # --- 2. حالة المستخدم العادي (يدخل على صفحة المستخدم) --- # 👈 هذا الإضافة الجديدة
+        elif user == 'user' and password == '123':
+            session['user'] = user
+            session['role'] = 'user'
+            log_event(real_ip, "/login", "User Login Success", "ALLOW")
+            return redirect(url_for('user_home'))
+
+
         else:
             log_event(real_ip, "/login", "Failed Login Attempt", "WARNING")
             return render_template('login.html', error="Invalid Credentials")
