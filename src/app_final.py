@@ -146,8 +146,8 @@ def waap_pipeline():
             prediction = rf_model.predict(input_data)[0]
             confidence = rf_model.predict_proba(input_data).max()
 
-            # إذا كان الموديل متأكداً أنه هجوم بنسبة عالية
-            if prediction == 1 and confidence > 0.85: 
+            # 👈 تعديل مهم: خفضنا النسبة من 0.85 إلى 0.55 ليصبح الموديل حساساً للعرض
+            if prediction == 1 and confidence > 0.55: 
                 log_event(ip, url, f"AI Detected Attack ({confidence:.2f})", "BLOCK")
                 return render_template('blocked.html', reason="AI Model Detected Malicious Activity"), 403
         except Exception as e:
@@ -232,24 +232,20 @@ def dashboard():
 
     return render_template('dashboard.html', logs=logs, stats=stats)
 
-# --- صفحة المستخدم (User Home - محدثة) ---
+# --- صفحة المستخدم (User Home) ---
+# 👈 تعديل: إرسال بيانات المستخدم والاتصال للصفحة الجديدة
 @app.route('/user_home')
 def user_home():
     if 'user' not in session: 
         return redirect(url_for('login'))
     
-    # 👈 تعديل 4: إرسال بيانات الاتصال الحقيقية للصفحة العالمية
+    # نرسل بيانات حقيقية للمستخدم ليشعر بالاحترافية
     ip = get_client_ip()
-    
-    # التأكد من وجود user_agent قبل استدعاء الخصائص لتجنب الأخطاء
-    platform = "Unknown"
-    browser = "Unknown"
-    
-    if request.user_agent:
-        platform = request.user_agent.platform.capitalize() if request.user_agent.platform else "Unknown"
-        browser = request.user_agent.browser.capitalize() if request.user_agent.browser else "Unknown"
+    ua = request.headers.get('User-Agent')
+    platform = request.user_agent.platform.capitalize() if request.user_agent.platform else "Unknown"
+    browser = request.user_agent.browser.capitalize() if request.user_agent.browser else "Unknown"
 
-    return render_template('home.html', user=session['user'], ip=ip, os=platform, browser=browser)
+    return render_template('home.html', user=session['user'], ip=ip, ua=ua, os=platform, browser=browser)
 
 # --- تسجيل الخروج ---
 @app.route('/logout')
@@ -270,7 +266,7 @@ def show_logs():
             for line in lines:
                 parts = line.strip().split('|')
                 if len(parts) >= 5:
-                    # 👈 تعديل 5: فصل البيانات لتناسب صفحة Logs الجديدة
+                    # 👈 تعديل 4: فصل الـ URL عن التهديد ليتوافق مع التصميم الجديد
                     logs_data.append({
                         'time': parts[0],
                         'ip': parts[1],
