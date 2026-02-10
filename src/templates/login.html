@@ -30,6 +30,9 @@
             text-align: left; margin-bottom: 20px; height: 40px; overflow: hidden; border-left: 2px solid #66fcf1; padding-left: 10px;
         }
         .badge { font-size: 12px; margin-top: 20px; color: #c5c6c7; opacity: 0.8; }
+        
+        /* تنسيق رسالة الخطأ */
+        .error-msg { color: #ff4b4b; font-size: 14px; margin-top: 10px; font-family: 'Courier Prime', monospace; }
     </style>
 </head>
 <body>
@@ -37,19 +40,39 @@
     <div class="login-container">
         <div class="terminal-log" id="typewriter"></div>
         <h2>WAAP Gateway</h2>
+        
         <form method="POST" action="/login">
             <input type="text" name="user" placeholder="USERNAME" required autocomplete="off">
             <input type="password" name="pass" placeholder="PASSWORD" required>
             <button type="submit">AUTHENTICATE</button>
         </form>
+
+        {% if error %}
+            <div class="error-msg">>> ERROR: {{ error }}</div>
+        {% endif %}
+
         <div class="badge">🔒 Protected by <b>AI & Random Forest</b></div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        particlesJS("particles-js", {"particles":{"number":{"value":60},"color":{"value":"#45a29e"},"shape":{"type":"circle"},"opacity":{"value":0.5},"size":{"value":3},"line_linked":{"enable":true,"distance":150,"color":"#45a29e","opacity":0.4,"width":1},"move":{"enable":true,"speed":2}},"interactivity":{"events":{"onhover":{"enable":true,"mode":"grab"}}}});
+        /* إكمال الكود المقطوع للأنيميشن */
+        particlesJS("particles-js", {"particles":{"number":{"value":60},"color":{"value":"#45a29e"},"shape":{"type":"circle"},"opacity":{"value":0.5},"size":{"value":3},"line_linked":{"enable":true,"distance":150,"color":"#45a29e","opacity":0.4,"width":1},"move":{"enable":true,"speed":2}}});
+        
         const texts = ["[SYSTEM] Initializing WAAP Engine...", "[AI MODEL] Loading Random Forest v2...", "[REDIS] Connection Established...", "[SECURITY] Monitoring Traffic: Active."];
         let count=0, index=0, currentText="", letter="";
-        (function type(){ if(count===texts.length)count=0; currentText=texts[count]; letter=currentText.slice(0,++index); document.getElementById("typewriter").textContent=letter; if(letter.length===currentText.length){count++;index=0;setTimeout(type,2000);}else{setTimeout(type,50);} })();
+        
+        (function type(){ 
+            if(count===texts.length) count=0; 
+            currentText=texts[count]; 
+            letter=currentText.slice(0,++index); 
+            document.getElementById("typewriter").textContent=letter; 
+            if(letter.length===currentText.length){ 
+                count++; index=0; setTimeout(type, 2000); 
+            } else { 
+                setTimeout(type, 50); 
+            } 
+        })();
     </script>
 </body>
 </html>
