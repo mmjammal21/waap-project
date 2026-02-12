@@ -61,7 +61,7 @@ except Exception as e:
     logger.error(f"❌ Model Load Error: {e}")
 
 # ==========================================================
-# 📊 Dashboard & Logs Logic
+# 📊 Dashboard & Logs Logic (تم إصلاح منطق القراءة)
 # ==========================================================
 def parse_waap_logs(limit=None):
     stats = {'AI': 0, 'SQLi': 0, 'XSS': 0, 'DDoS': 0, 'ALLOW': 0, 'BLOCK': 0}
@@ -69,16 +69,19 @@ def parse_waap_logs(limit=None):
     if not os.path.exists(LOG_FILE): return stats, all_logs
 
     with open(LOG_FILE, "r") as f:
-        for line in f:
+        lines = f.readlines()
+        for line in lines:
+            # التنسيق: timestamp|ip|url|threat|action
             parts = line.strip().split("|")
             if len(parts) >= 5: 
                 entry = {
                     "time": parts[0],
-                    "ip": parts[1] if len(parts)>1 else "0.0.0.0",
-                    "url": parts[2] if len(parts)>2 else "/",
-                    "threat": parts[3] if len(parts)>3 else "Unknown",
-                    "action": parts[4] if len(parts)>4 else "ALLOW"
+                    "ip": parts[1],
+                    "url": parts[2],
+                    "threat": parts[3],
+                    "action": parts[4]
                 }
+                # تحديث إحصائيات الداشبورد (Image 31)
                 if entry['action'] == "BLOCK": stats['BLOCK'] += 1
                 else: stats['ALLOW'] += 1
 
@@ -100,7 +103,10 @@ def get_client_ip():
 def log_event(ip, url, threat_type, action):
     t = datetime.now(timezone.utc) + timedelta(hours=3)
     timestamp = t.strftime("%Y-%m-%d %H:%M:%S")
-    logger.info(f"{timestamp}|{ip}|{url}|{threat_type}|{action}")
+    # كتابة السجل في الملف ليفهمه الداشبورد (Image 31)
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{timestamp}|{ip}|{url}|{threat_type}|{action}\n")
+    logger.info(f"EVENT: {timestamp}|{ip}|{url}|{threat_type}|{action}")
 
 def extract_features(path, query, body):
     features = {col: 0 for col in model_columns}
@@ -115,8 +121,6 @@ def extract_features(path, query, body):
     features['sql_keywords'] = sql_k
     features['xss_keywords'] = xss_k
     features['special_chars'] = spec_chars
-    # حساب التعقيد الرياضي لضمان الدقة
-    # $$ \text{char\_complexity} = \frac{\text{special\_chars}}{\text{payload\_len}} $$
     features['char_complexity'] = spec_chars / payload_len
     features['code_density'] = (sql_k * 2.5 + xss_k * 2.5) / payload_len
     
@@ -124,19 +128,21 @@ def extract_features(path, query, body):
 
 @app.before_request
 def waap_pipeline():
-    # 1. استثناء الملفات الثابتة وصفحات النظام الأساسية
+    # 1. استثناء الملفات الثابتة وصفحات النظام
     if request.path.startswith('/static') or request.path in ['/favicon.ico', '/blocked', '/logout']:
-        return
-
-    # 2. الحل النهائي للحظر التلقائي (Image 26): السماح بطلبات GET لصفحات الدخول
-    # هذا يضمن ظهور صفحة الـ Login دائماً للمستخدم الطبيعي
-    if request.method == 'GET' and request.path in ['/', '/login']:
         return
 
     ip, url_path = get_client_ip(), request.path
     query = request.query_string.decode()
     body = request.get_data(as_text=True) or ""
-    
+
+    # 2. إصلاح ثغرة الهروب (Bypass Fix - Image 30):
+    # لا تسمح بالمرور المباشر إلا إذا كان الرابط نظيفاً تماماً من أي query string
+    if request.method == 'GET' and request.path in ['/', '/login']:
+        if not query:
+            return # مرور آمن للمستخدم الطبيعي
+        # إذا وجد query (هجوم)، أكمل للفحص أدناه
+
     # 3. Rate Limiting (Redis)
     is_admin = session.get('role') == 'admin'
     if not is_admin:
@@ -151,29 +157,28 @@ def waap_pipeline():
     # 4. Signature Detection (WAF Layer)
     full_text = (unquote(request.full_path) + " " + body).lower()
     patterns = {
-        "SQLi": r"(\bunion\b.*\bselect\b|' or 1=1|' or '1'='1'|admin'\s*--|--|#)",
+        "SQLi": r"(\bunion\b.*\bselect\b|' or 1=1|' or '1'='1'|--|#)",
         "XSS": r"(<script>|alert\(|onerror=|onload=)",
-        "LFI": r"(\.\./|\.\.\\|/etc/passwd|/bin/sh)"
+        "LFI": r"(\.\./|\.\.\\|/etc/passwd)"
     }
     for name, pat in patterns.items():
         if re.search(pat, full_text):
             log_event(ip, url_path, f"{name} Attack", "BLOCK")
             return render_template('blocked.html'), 403
 
-    # 5. AI Detection (V7) - فحص ذكي للبيانات فقط
+    # 5. AI Detection (V7) - فحص ذكي للبيانات
     try:
-        # إذا كان الطلب لا يحتوي على أي بيانات، لا داعي للفحص (تجنب الحظر الخاطئ للدومين)
-        if not query and not body:
-            return
-
         input_df = extract_features(url_path, query, body).reindex(columns=model_columns, fill_value=0)
         pred = rf_model.predict(input_df)[0]
         
-        # Benign=0 في موديل V7 المحدث
+        # Benign=0 في موديل V7 (Image 14)
         if int(pred) != 0:
             threat_name = "Network Attack" if int(pred) == 1 else "Web Attack"
             log_event(ip, url_path, f"AI {threat_name}", "BLOCK")
             return render_template('blocked.html'), 403
+        
+        # إذا مر الطلب بنجاح، سجل كطلب مسموح (ALLOWED - Image 31)
+        log_event(ip, url_path, "NORMAL", "ALLOW")
             
     except Exception as e:
         logger.error(f"AI error: {e}")
@@ -191,22 +196,17 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # التوافق مع HTML (Image 29): يقرأ user و pass
+        # مطابقة حقول HTML الخاصة بك (user و pass - Image 29)
         user = (request.form.get('user') or request.form.get('identity') or "").strip()
         pwd = (request.form.get('pass') or request.form.get('access_key') or "").strip()
         
-        logger.info(f"Attempting login for: {user}")
-
         if user == 'admin' and pwd == '123':
             session['user'], session['role'] = user, 'admin'
-            log_event(get_client_ip(), "/login", "Admin Login", "ALLOW")
             return redirect(url_for('dashboard'))
         elif user == 'user' and pwd == '123':
             session['user'], session['role'] = user, 'user'
-            log_event(get_client_ip(), "/login", "User Login", "ALLOW")
             return render_template('home.html', user=user, ip=get_client_ip())
         
-        # إذا فشل الدخول (Image 27)
         return render_template('login.html', error="Invalid Credentials")
     return render_template('login.html')
 
@@ -232,6 +232,5 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == "__main__":
-    # التعديل لضمان العمل على Render و Localhost تلقائياً
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
