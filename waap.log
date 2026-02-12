@@ -548,3 +548,7 @@
 2026-02-12 00:03:13,500|INFO|✅ AI Model Ready (Hybrid Version V7 - Balanced Edition 91.30%)
 2026-02-12 00:05:06,909|INFO|2026-02-12 03:05:06|172.18.0.1|/login|Admin Login|ALLOW
 2026-02-12 00:08:11,638|INFO|2026-02-12 03:08:11|172.18.0.1|/login?test=<script>alert(1)</script>|XSS Attack|BLOCK
+2026-02-12 04:35:02,642|INFO|✅ Connected to Redis
+2026-02-12 04:35:21,998|INFO|✅ AI Model Ready (Hybrid Version V7 - Balanced Edition 91.30%)
+2026-02-12 04:36:18,419|INFO|2026-02-12 07:36:18|172.18.0.1|/login|Admin Login|ALLOW
+2026-02-12 04:37:05,514|INFO|2026-02-12 07:37:05|172.18.0.1|/login?search=<script>alert('Hacked')</script>|XSS Attack|BLOCK
