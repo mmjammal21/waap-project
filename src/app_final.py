@@ -5,93 +5,81 @@ import os
 import logging
 from flask import Flask, request, render_template, redirect, url_for, session
 
-# --- الإعدادات وسجلات النظام ---
+# --- الإعدادات ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("APP_SECRET_KEY", "Malik_Secure_2026")
 
-# --- تحميل محرك الذكاء الاصطناعي (V7) ---
-MODEL_PATH = 'data/waap_model.pkl'
-ENCODER_PATH = 'data/label_encoder.pkl'
-
+# --- تحميل الموديل V7 ---
 try:
-    model = joblib.load(MODEL_PATH)
-    label_encoder = joblib.load(ENCODER_PATH)
+    model = joblib.load('data/waap_model.pkl')
+    label_encoder = joblib.load('data/label_encoder.pkl')
     model_columns = joblib.load('data/model_features.pkl')
-    logger.info("2026-02-12 | INFO | ✅ AI Engine Standardized for Render Deployment (V7)")
+    logger.info("✅ System Ready: AI Engine V7 Balanced (91.30%)")
 except Exception as e:
-    logger.error(f"❌ Error loading AI components: {e}")
+    logger.error(f"❌ Error loading AI: {e}")
 
-# --- 🧠 خوارزمية استخراج الميزات المحدثة ---
-def extract_features(path, query, body):
+# --- دالة استخراج الميزات (النسخة المستقرة) ---
+def extract_features(path, data_string):
     features = {col: 0 for col in model_columns}
+    text = (path + " " + data_string).lower()
+    t_len = len(text) if len(text) > 0 else 1
     
-    # تنظيف المحتوى: نركز فقط على ما أرسله المستخدم فعلياً
-    payload = (path + " " + query + " " + body).lower().strip()
-    # إذا كان الطلب فارغاً تماماً (مثل دخول الصفحة لأول مرة)، نضع طولاً افتراضياً لتجنب القسمة على صفر
-    payload_len = len(payload) if len(payload) > 0 else 1
-    
-    # حساب الميزات الأساسية
-    sql_k = len(re.findall(r"(union|select|insert|drop|--|#|'|\"|or\s+1=1|admin'|concat)", payload))
-    xss_k = len(re.findall(r"(<|>|script|alert|onerror|onload|iframe|javascript:)", payload))
-    spec_chars = len(re.findall(r"[^a-zA-Z0-9\s]", payload))
+    # حساب الأنماط (بدون الدومين)
+    sql_k = len(re.findall(r"(union|select|insert|--|#|'|\"|or\s+1=1)", text))
+    xss_k = len(re.findall(r"(<|>|script|alert|onerror|onload)", text))
+    spec_chars = len(re.findall(r"[^a-zA-Z0-9\s]", text))
     
     features['url_length'] = len(path)
     features['sql_keywords'] = sql_k
     features['xss_keywords'] = xss_k
     features['special_chars'] = spec_chars
-    
-    # معادلة التعقيد الرياضي:
-    # $$ \text{char\_complexity} = \frac{\text{special\_chars}}{\text{payload\_len}} $$
-    features['char_complexity'] = spec_chars / payload_len
-    features['code_density'] = (sql_k * 2 + xss_k * 2) / payload_len 
-    
+    features['char_complexity'] = spec_chars / t_len
+    features['code_density'] = (sql_k * 2 + xss_k * 2) / t_len 
     return pd.DataFrame([features])
 
-# --- 🛡️ حارس البوابة (Security Middleware) ---
+# --- حارس الأمان (بدون حظر خاطئ) ---
 @app.before_request
 def security_check():
-    # 1. استثناء الملفات الثابتة والروابط الإدارية
-    static_extensions = ('.css', '.js', '.png', '.jpg', '.ico', '.svg')
-    if request.path.endswith(static_extensions) or request.path in ['/blocked', '/logout']:
+    # استثناء الصفحات الأساسية من فحص الـ AI لضمان الدخول
+    if request.path in ['/blocked', '/logout', '/static/'] or request.path.endswith(('.css', '.js')):
         return
 
-    # 2. القاعدة الذهبية: إذا كان المستخدم يطلب الصفحة الرئيسية أو الدخول بدون أي "باراميترز" أو "بيانات"
-    # نسمح له بالمرور فوراً دون إزعاج الموديل، لأن الطلب الفارغ مستحيل أن يكون هجوماً.
+    # جمع البيانات للفحص
     query = request.query_string.decode()
-    body = request.get_data(as_text=True)
+    # نأخذ قيم الفورم فقط إذا وجدت
+    form_data = " ".join(request.form.values()) if request.form else ""
     
-    if not query and not body and request.path in ['/', '/login']:
-        return # مرور آمن للمستخدم الطبيعي
-
-    # 3. تحليل الطلبات التي تحتوي على بيانات فقط
-    features_df = extract_features(request.path, query, body)
-    
-    # فحص "عتبة الخطورة": إذا كانت الرموز الخاصة قليلة جداً ولا توجد كلمات مفتاحية، فهو طلب سليم.
-    if features_df['special_chars'].iloc[0] < 3 and features_df['sql_keywords'].iloc[0] == 0:
+    # إذا كان مجرد دخول عادي للصفحة بدون بيانات، اسمح له بالمرور
+    if not query and not form_data:
         return
 
-    prediction = model.predict(features_df)[0]
+    # تحليل AI
+    f_df = extract_features(request.path, query + " " + form_data)
+    prediction = model.predict(f_df)[0]
     label = label_encoder.inverse_transform([prediction])[0]
 
     if label != 'Benign':
-        logger.warning(f"🚨 AI BLOCKED: {label} | Path: {request.path}")
+        logger.warning(f"🚨 AI Blocked Attack: {label}")
         return redirect(url_for('blocked'))
 
-# --- 🌐 المسارات (Routes) ---
-
+# --- المسارات ---
 @app.route('/')
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        identity = request.form.get('identity')
-        access_key = request.form.get('access_key')
+        # تأكد أن هذه الأسماء (identity) و (access_key) مطابقة لملف HTML لديك
+        user_input = request.form.get('identity')
+        pass_input = request.form.get('access_key')
         
-        if identity in ['admin', 'user'] and access_key == '123':
-            session['user'] = identity
+        logger.info(f"Login attempt: {user_input}") # سجل لمراقبة الدخول في Render
+
+        if user_input == 'admin' and pass_input == '123':
+            session['user'] = 'admin'
             return redirect(url_for('dashboard'))
+        
         return render_template('login.html', error="Invalid Credentials")
     
     return render_template('login.html')
