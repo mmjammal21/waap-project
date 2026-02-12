@@ -53,10 +53,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, '../data')
 
 try:
-    # تحميل الموديل الهجين النهائي (تحديث المسمى لـ V7 - Balanced Edition)
+    # تحميل الموديل الهجين النهائي (V7 - Balanced Edition)
     rf_model = joblib.load(os.path.join(DATA_DIR, 'waap_model.pkl'))
     model_columns = joblib.load(os.path.join(DATA_DIR, 'model_features.pkl'))
-    # تم تعديل السطر أدناه ليعكس دقة النسخة السابعة 91.30% كما في صورتك الأخيرة
+    # تعكس دقة النسخة السابعة 91.30%
     logger.info("✅ AI Model Ready (Hybrid Version V7 - Balanced Edition 91.30%)")
 except Exception as e:
     logger.error(f"❌ Model Load Error: {e}")
@@ -72,7 +72,6 @@ def parse_waap_logs(limit=None):
     with open(LOG_FILE, "r") as f:
         for line in f:
             parts = line.strip().split("|")
-            # الحفاظ على تصحيح الأعمدة الذي وضعته أنت (القرار في العمود 6)
             if len(parts) >= 7:
                 entry = {
                     "time": parts[2],
@@ -100,7 +99,7 @@ def get_client_ip():
     return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
 
 def log_event(ip, url, threat_type, action):
-    # توقيت الأردن (UTC+3) كما هو في كودك
+    # توقيت الأردن (UTC+3)
     t = datetime.now(timezone.utc) + timedelta(hours=3)
     timestamp = t.strftime("%Y-%m-%d %H:%M:%S")
     logger.info(f"{timestamp}|{ip}|{url}|{threat_type}|{action}")
@@ -110,8 +109,10 @@ def extract_features(url, body):
     text = (url + " " + body).lower()
     url_len = len(url) if len(url) > 0 else 1
     
+    # تحسين استخراج الميزات لصيد هجمات SQLi و XSS بدقة أعلى
     spec_chars = len(re.findall(r"[^a-zA-Z0-9\s]", text))
-    sql_k = len(re.findall(r"(union|select|insert|drop|--|#|/\*|'|\"|%27|%23)", text))
+    # تم توسيع نطاق البحث ليشمل '--' و '#' والأنماط المهربة
+    sql_k = len(re.findall(r"(union|select|insert|drop|--|#|/\*|'|\"|%27|%23|or|and|1=1|1=0)", text))
     xss_k = len(re.findall(r"(<|>|script|alert|onerror|onload|iframe|javascript:|%3c|%3e)", text))
 
     features['url_length'] = url_len
@@ -119,7 +120,8 @@ def extract_features(url, body):
     features['xss_keywords'] = xss_k
     features['special_chars'] = spec_chars
     features['char_complexity'] = spec_chars / url_len
-    features['code_density'] = (sql_k + xss_k) / url_len
+    # زيادة الوزن النسبي لضمان الحظر (Code Density Weighting)
+    features['code_density'] = (sql_k * 2.5 + xss_k * 2.5) / url_len
     
     return pd.DataFrame([features])
 
@@ -131,7 +133,7 @@ def waap_pipeline():
     ip, url = get_client_ip(), unquote(request.full_path)
     is_admin = session.get('role') == 'admin'
 
-    # 1. Rate Limiting (Redis) - كودك كما هو
+    # 1. Rate Limiting (Redis)
     if not is_admin:
         try:
             req_count = r.incr(ip)
@@ -141,11 +143,12 @@ def waap_pipeline():
                 return render_template('blocked.html'), 429
         except: pass
 
-    # 2. Signature Detection (WAF Layer) - كودك كما هو
+    # 2. Signature Detection (WAF Layer)
     body = request.get_data(as_text=True) or ""
     full_text = (url + " " + body).lower()
     patterns = {
-        "SQLi": r"(\bunion\b.*\bselect\b|' or 1=1|admin'\s*--)",
+        # تم تحديث النمط ليشمل bypass 1' OR '1'='1'
+        "SQLi": r"(\bunion\b.*\bselect\b|' or 1=1|' or '1'='1'|admin'\s*--|--|#)",
         "XSS": r"(<script>|alert\(|onerror=|onload=)",
         "LFI": r"(\.\./|\.\.\\|/etc/passwd|/bin/sh)"
     }
@@ -156,29 +159,32 @@ def waap_pipeline():
 
     # 3. AI Detection (V7 - Logic)
     try:
-        # القائمة البيضاء: أضفت لها '/' لمنع الحظر التلقائي عند الدخول للرابط الرئيسي
         whitelist = ['/', '/login', '/dashboard', '/logout', '/static', '/logs']
         if any(request.path == path or request.path.startswith(path) for path in whitelist):
-            return 
+            # التأكد من فحص المعاملات (Params) حتى في المسارات المسموحة
+            if "?" not in request.full_path: return 
 
         input_df = extract_features(url, body).reindex(columns=model_columns, fill_value=0)
         pred = rf_model.predict(input_df)[0]
         
-        # التوافق مع V7: Benign=0, Network=1, Web=2 كما في صورتك
+        # التوافق مع V7: Benign=0, Network=1, Web=2
         safe_classes = [0] 
         
         if int(pred) not in safe_classes:
+            # تعيين مسمى التهديد بناءً على الكلاس
             threat_name = "Network Attack" if int(pred) == 1 else "Web Attack"
             log_event(ip, url, f"AI {threat_name} (Class {pred})", "BLOCK")
             return render_template('blocked.html'), 403
         else:
-            log_event(ip, url, f"AI Safe (Class {pred})", "ALLOW")
+            # تسجيل الطلبات السليمة فقط في حال وجود بارامترات لتقليل حجم السجلات
+            if "?" in request.full_path:
+                log_event(ip, url, f"AI Safe (Class {pred})", "ALLOW")
             
     except Exception as e:
         logger.error(f"AI prediction error: {e}")
 
 # ==========================================================
-# 🌐 Routes - كودك كما هو دون أي تغيير
+# 🌐 Routes
 # ==========================================================
 @app.route('/')
 def index():
@@ -223,5 +229,5 @@ def logout():
 # 🚀 Execution
 # ==========================================================
 if __name__ == "__main__":
-    # ملاحظة: تم تغيير host لـ 0.0.0.0 ليعمل مع Docker بنجاح
+    # host='0.0.0.0' ضروري للعمل داخل Docker و Render
     app.run(debug=True, host='0.0.0.0', port=5000)
