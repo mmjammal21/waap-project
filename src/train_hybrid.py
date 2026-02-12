@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, accuracy_score
-from sklearn.utils import resample # أداة الموازنة الجديدة
+from sklearn.utils import resample 
 
 # المسارات المطلقة
 CSIC_FILE = '/home/malik/graduation_project/data/csic_2010/csic_database.csv'
@@ -39,7 +39,7 @@ def group_labels(label):
 
 print("🚀 Starting ULTIMATE Hybrid Training V7 (Balanced Edition)...")
 
-# --- تحميل البيانات بحجم أكبر ---
+# --- تحميل البيانات ---
 df_fuzz = pd.read_csv(FUZZ_FILE, nrows=70000)
 f_X = df_fuzz['payload'].apply(lambda x: pd.Series(extract_features(x)))
 f_y = df_fuzz['label']
@@ -59,17 +59,15 @@ iot_X['char_complexity'] = iot_X['special_chars'] / iot_X['url_length'].replace(
 iot_X['code_density'] = 0
 iot_y = df_iot['label']
 
-# --- الدمج والموازنة (The Balancing Act) ---
+# --- الدمج والموازنة ---
 X_full = pd.concat([f_X, w_X, iot_X], ignore_index=True)
 y_full = pd.concat([f_y, w_y, iot_y], ignore_index=True).apply(group_labels)
 
-# موازنة الفئات يدوياً لضمان عدم طغيان Network_Attack
 combined = pd.concat([X_full, y_full.rename('label')], axis=1)
 benign = combined[combined['label'] == 'Benign']
 web = combined[combined['label'] == 'Web_Attack']
 net = combined[combined['label'] == 'Network_Attack']
 
-# موازنة كل فئة ليكون لديها 40,000 عينة (Downsampling/Upsampling)
 benign_res = resample(benign, replace=True, n_samples=40000, random_state=42)
 web_res = resample(web, replace=True, n_samples=40000, random_state=42)
 net_res = resample(net, replace=True, n_samples=40000, random_state=42)
@@ -82,9 +80,10 @@ le = LabelEncoder()
 y_encoded = le.fit_transform(y)
 X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.15, random_state=42, stratify=y_encoded)
 
-# --- التدريب المكثف ---
+# --- التدريب المكثف (تم تعديل المعاملات لتقليل الحجم) ---
 print(f"🧠 Training Balanced Random Forest on {len(X)} samples...")
-model = RandomForestClassifier(n_estimators=600, max_depth=45, class_weight='balanced', n_jobs=-1, random_state=42)
+# التعديل هنا: تقليل n_estimators و max_depth لتقليل استهلاك الـ RAM في Render
+model = RandomForestClassifier(n_estimators=100, max_depth=20, class_weight='balanced', n_jobs=-1, random_state=42)
 model.fit(X_train, y_train)
 
 # --- النتائج ---
@@ -92,8 +91,10 @@ y_pred = model.predict(X_test)
 print("\n📊 --- BALANCED REPORT (V7) ---")
 print(classification_report(y_test, y_pred, target_names=le.classes_))
 
-joblib.dump(model, os.path.join(SAVE_PATH, 'waap_model.pkl'))
+# التعديل هنا: استخدام compress=3 لتقليل حجم الملف النهائي
+joblib.dump(model, os.path.join(SAVE_PATH, 'waap_model.pkl'), compress=3)
 joblib.dump(le, os.path.join(SAVE_PATH, 'label_encoder.pkl'))
 joblib.dump(X.columns.tolist(), os.path.join(SAVE_PATH, 'model_features.pkl'))
+
 print(f"✅ V7 Saved! New Accuracy: {accuracy_score(y_test, y_pred)*100:.2f}%")
 print("🎯 FINAL Mapping:", dict(zip(le.classes_, le.transform(le.classes_))))
