@@ -1,0 +1,53 @@
+
+
+services:
+  # 1. تأمين Redis بكلمة مرور ونظام فحص
+  redis:
+    image: "redis:alpine"
+    container_name: waap_redis
+    # تفعيل كلمة المرور عند التشغيل
+    command: redis-server --requirepass Malik_Secure_Redis_2026
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "Malik_Secure_Redis_2026", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. تطبيق الـ WAAP مع نظام فحص الموديل
+  waap-gateway:
+    build: .
+    container_name: waap_app
+    depends_on:
+      redis:
+        condition: service_healthy # لا يبدأ التطبيق إلا بعد التأكد من صحة الريديس
+    environment:
+      # تحديث الرابط ليشمل كلمة المرور الجديدة
+      - REDIS_URL=redis://:Malik_Secure_Redis_2026@redis:6379
+      - APP_SECRET_KEY=Malik_Secure_Key_2026
+    volumes:
+      - ./waap.log:/app/waap.log
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 3. بوابة Nginx مع نظام فحص البوابة
+  nginx:
+    image: nginx:alpine
+    container_name: waap_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx-selfsigned.crt:/etc/nginx/ssl/nginx-selfsigned.crt:ro
+      - ./nginx/nginx-selfsigned.key:/etc/nginx/ssl/nginx-selfsigned.key:ro
+    depends_on:
+      waap-gateway:
+        condition: service_healthy # لا تفتح البوابة إلا بعد جاهزية الذكاء الاصطناعي
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

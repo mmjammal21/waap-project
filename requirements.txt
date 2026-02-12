@@ -5,3 +5,4 @@ redis
 gunicorn
 numpy
 joblib
+python-dotenv
