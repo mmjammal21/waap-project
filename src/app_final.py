@@ -1,72 +1,213 @@
 import os
 import re
-import logging
-import joblib
+import time
+import pickle
 import redis
-import pandas as pd
+import numpy as np
+from datetime import datetime
+from flask import Flask, request, redirect, render_template, abort
 
-from flask import Flask, request, render_template, redirect, url_for, session
-from urllib.parse import unquote
-from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
+# ===============================
+# CONFIGURATION
+# ===============================
 
-# ==========================================================
-# 🔐 Environment Configuration
-# ==========================================================
-load_dotenv()
-APP_SECRET_KEY = os.getenv("APP_SECRET_KEY", "Malik_Secure_2026")
-REDIS_URL = os.getenv("REDIS_URL")
+MODEL_PATH = "waap_model.pkl"
+LOG_FILE = "waap_logs.txt"
 
-LOG_FILE = "waap.log"
+RATE_LIMIT = 100          # max requests per window
+RATE_WINDOW = 60          # seconds
+AI_BASE_THRESHOLD = 0.75  # Base AI confidence threshold
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s|%(levelname)s|%(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ]
-)
+SYSTEM_PATHS = [
+    '/static',
+    '/favicon.ico',
+    '/blocked',
+    '/dashboard',
+    '/logs'
+]
 
-logger = logging.getLogger("WAAP")
+# ===============================
+# INIT
+# ===============================
 
 app = Flask(__name__)
-app.secret_key = APP_SECRET_KEY
 
-# ==========================================================
-# 🔴 Redis Connection
-# ==========================================================
-r = None
-try:
-    if REDIS_URL:
-        r = redis.from_url(REDIS_URL, decode_responses=True)
-        r.ping()
-        logger.info("✅ Connected to Redis")
+# Load model
+with open(MODEL_PATH, "rb") as f:
+    model = pickle.load(f)
+
+# Redis connection
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    password=os.getenv("REDIS_PASSWORD", None),
+    decode_responses=True
+)
+
+# ===============================
+# UTILITY FUNCTIONS
+# ===============================
+
+def log_event(ip, url, threat, action):
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{datetime.now()}|{ip}|{url}|{threat}|{action}\n")
+
+
+def rate_limit(ip):
+    key = f"rate:{ip}"
+    count = redis_client.get(key)
+
+    if count is None:
+        redis_client.setex(key, RATE_WINDOW, 1)
+        return False
+
+    if int(count) >= RATE_LIMIT:
+        return True
+
+    redis_client.incr(key)
+    return False
+
+
+def extract_features(payload):
+    payload_len = len(payload)
+    special_chars = len(re.findall(r'[^\w]', payload))
+    sql_k = len(re.findall(r'\b(select|union|insert|drop|or|and)\b', payload, re.I))
+    xss_k = len(re.findall(r'<script|alert\(|onerror=|javascript:', payload, re.I))
+
+    if payload_len == 0:
+        payload_len = 1
+
+    char_complexity = special_chars / payload_len
+    code_density = (sql_k * 2 + xss_k * 2) / payload_len
+
+    return np.array([[payload_len, char_complexity, code_density]])
+
+
+def adaptive_threshold(ip):
+    """
+    Dynamic threshold adjustment:
+    - If IP has many recent suspicious attempts → lower threshold
+    """
+    suspicious_key = f"suspicious:{ip}"
+    attempts = redis_client.get(suspicious_key)
+
+    if attempts is None:
+        return AI_BASE_THRESHOLD
+
+    attempts = int(attempts)
+
+    if attempts > 10:
+        return 0.60  # more strict
+    elif attempts > 5:
+        return 0.68
     else:
-        logger.warning("⚠️ REDIS_URL not set, Rate Limiting disabled.")
-except Exception as e:
-    logger.error(f"❌ Redis Error: {e}")
+        return AI_BASE_THRESHOLD
 
-# ==========================================================
-# 📁 Model Loading
-# ==========================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, '../data')
 
-try:
-    rf_model = joblib.load(os.path.join(DATA_DIR, 'waap_model.pkl'))
-    model_columns = joblib.load(os.path.join(DATA_DIR, 'model_features.pkl'))
-    logger.info("✅ AI Model Loaded Successfully")
-except Exception as e:
-    logger.error(f"❌ Model Load Error: {e}")
-    rf_model = None
-    model_columns = []
+def mark_suspicious(ip):
+    key = f"suspicious:{ip}"
+    if redis_client.get(key) is None:
+        redis_client.setex(key, 300, 1)
+    else:
+        redis_client.incr(key)
 
-# ==========================================================
-# 📊 Logs Parsing
-# ==========================================================
+
+# ===============================
+# SIGNATURE ENGINE
+# ===============================
+
+patterns = {
+    "SQLi": r"(\bunion\b.*\bselect\b|\bselect\b.*\bfrom\b|' or 1=1|--|#|\bdrop\b|\binsert\b)",
+    "XSS": r"(<script.*?>.*?</script>|alert\(|onerror=|javascript:)",
+    "LFI": r"(\.\./|\.\.\\|/etc/passwd)"
+}
+
+def signature_detect(payload):
+    for name, pattern in patterns.items():
+        if re.search(pattern, payload, re.I):
+            return name
+    return None
+
+
+# ===============================
+# WAAP PIPELINE
+# ===============================
+
+@app.before_request
+def waap_pipeline():
+
+    if any(request.path.startswith(p) for p in SYSTEM_PATHS):
+        return
+
+    ip = request.remote_addr
+    payload = request.query_string.decode() + str(request.form)
+
+    # Rate limiting
+    if rate_limit(ip):
+        log_event(ip, request.path, "DDoS", "BLOCK")
+        abort(403)
+
+    # Signature detection
+    sig = signature_detect(payload)
+    if sig:
+        mark_suspicious(ip)
+        log_event(ip, request.path, f"{sig}_Attack", "BLOCK")
+        abort(403)
+
+    # AI detection
+    features = extract_features(payload)
+    proba = model.predict_proba(features)[0][1]
+
+    threshold = adaptive_threshold(ip)
+
+    if proba >= threshold:
+        mark_suspicious(ip)
+        log_event(ip, request.path, f"AI_Attack({round(proba,2)})", "BLOCK")
+        abort(403)
+
+    # Log only real user paths
+    if request.path not in ['/dashboard', '/logs']:
+        log_event(ip, request.path, "NORMAL", "ALLOW")
+
+
+# ===============================
+# ROUTES
+# ===============================
+
+@app.route("/")
+def home():
+    return "WAAP System Running"
+
+
+@app.route("/blocked")
+def blocked():
+    return "Request Blocked", 403
+
+
+@app.route("/dashboard")
+def dashboard():
+    stats, logs = parse_waap_logs()
+    return {
+        "stats": stats,
+        "recent_logs": logs[:20]
+    }
+
+
+# ===============================
+# LOG PARSER
+# ===============================
+
 def parse_waap_logs(limit=None):
-    stats = {'AI': 0, 'SQLi': 0, 'XSS': 0, 'DDoS': 0, 'ALLOW': 0, 'BLOCK': 0}
+
+    stats = {
+        'AI': 0,
+        'SQLi': 0,
+        'XSS': 0,
+        'DDoS': 0,
+        'ALLOW': 0,
+        'BLOCK': 0
+    }
+
     all_logs = []
 
     if not os.path.exists(LOG_FILE):
@@ -77,191 +218,41 @@ def parse_waap_logs(limit=None):
 
         for line in lines:
             parts = line.strip().split("|")
-            if len(parts) >= 5:
-                entry = {
-                    "time": parts[0],
-                    "ip": parts[1],
-                    "url": parts[2],
-                    "threat": parts[3],
-                    "action": parts[4]
-                }
+            if len(parts) != 5:
+                continue
 
-                if entry['action'] == "BLOCK":
-                    stats['BLOCK'] += 1
-                else:
-                    stats['ALLOW'] += 1
+            entry = {
+                "time": parts[0],
+                "ip": parts[1],
+                "url": parts[2],
+                "threat": parts[3],
+                "action": parts[4]
+            }
 
-                if "AI" in entry['threat']:
-                    stats['AI'] += 1
-                elif "SQL" in entry['threat']:
-                    stats['SQLi'] += 1
-                elif "XSS" in entry['threat']:
-                    stats['XSS'] += 1
-                elif "DDoS" in entry['threat']:
-                    stats['DDoS'] += 1
+            if entry['action'] == "BLOCK":
+                stats['BLOCK'] += 1
+            elif entry['action'] == "ALLOW":
+                stats['ALLOW'] += 1
 
-                all_logs.insert(0, entry)
+            threat = entry['threat']
+
+            if "SQL" in threat:
+                stats['SQLi'] += 1
+            elif "XSS" in threat:
+                stats['XSS'] += 1
+            elif "DDoS" in threat:
+                stats['DDoS'] += 1
+            elif "AI" in threat:
+                stats['AI'] += 1
+
+            all_logs.insert(0, entry)
 
     return stats, all_logs[:limit] if limit else all_logs
 
-# ==========================================================
-# 🛡️ Security Utilities
-# ==========================================================
-def get_client_ip():
-    return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
 
-def log_event(ip, url, threat_type, action):
-    t = datetime.now(timezone.utc) + timedelta(hours=3)
-    timestamp = t.strftime("%Y-%m-%d %H:%M:%S")
+# ===============================
+# MAIN
+# ===============================
 
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{timestamp}|{ip}|{url}|{threat_type}|{action}\n")
-
-    logger.info(f"{timestamp}|{ip}|{url}|{threat_type}|{action}")
-
-# ==========================================================
-# 🤖 AI Feature Extraction
-# ==========================================================
-def extract_features(query, body):
-    features = {col: 0 for col in model_columns}
-
-    text = (query + " " + body).lower()
-    payload_len = len(text) if len(text) > 0 else 1
-
-    spec_chars = len(re.findall(r"[^a-zA-Z0-9\s]", text))
-    sql_k = len(re.findall(r"(union|select|insert|drop|--|#|'|\"|\bor\b|\band\b|1=1|1=0)", text))
-    xss_k = len(re.findall(r"(<|>|script|alert|onerror|onload|iframe|javascript:)", text))
-
-    features['url_length'] = len(query)
-    features['sql_keywords'] = sql_k
-    features['xss_keywords'] = xss_k
-    features['special_chars'] = spec_chars
-    features['char_complexity'] = spec_chars / payload_len
-    features['code_density'] = (sql_k * 2.5 + xss_k * 2.5) / payload_len
-
-    return pd.DataFrame([features])
-
-# ==========================================================
-# 🛡️ WAAP PIPELINE
-# ==========================================================
-BLOCK_THRESHOLD = 0.98
-
-@app.before_request
-def waap_pipeline():
-
-    if request.path.startswith('/static') or request.path.startswith('/favicon'):
-        return
-
-    ip = get_client_ip()
-    url_path = request.path
-    query = request.query_string.decode()
-    body = request.get_data(as_text=True) or ""
-
-    # Allow clean GET requests
-    if request.method == "GET" and not query and not body:
-        log_event(ip, url_path, "NORMAL", "ALLOW")
-        return
-
-    # Rate Limiting
-    if r and session.get('role') != 'admin':
-        try:
-            req_count = r.incr(ip)
-            if req_count == 1:
-                r.expire(ip, 60)
-            if req_count > 100:
-                log_event(ip, url_path, "DDoS Limit", "BLOCK")
-                return render_template('blocked.html'), 429
-        except:
-            pass
-
-    # Signature Detection
-    scan_text = (unquote(query) + " " + body).lower()
-
-    patterns = {
-        "SQLi": r"(\bunion\b.*\bselect\b|' or 1=1|' or '1'='1'|--|#|\bdrop\b|\binsert\b)",
-        "XSS": r"(<script>|alert\(|onerror=|onload=)",
-        "LFI": r"(\.\./|\.\.\\|/etc/passwd)"
-    }
-
-    for name, pat in patterns.items():
-        if re.search(pat, scan_text):
-            log_event(ip, url_path, f"{name} Attack", "BLOCK")
-            return render_template('blocked.html'), 403
-
-    # AI Detection
-    payload = (query + " " + body).strip()
-
-    if payload and rf_model:
-        try:
-            input_df = extract_features(query, body).reindex(columns=model_columns, fill_value=0)
-            proba = rf_model.predict_proba(input_df)[0][1]
-
-            if proba >= BLOCK_THRESHOLD:
-                log_event(ip, url_path, "AI Web Attack", "BLOCK")
-                return render_template('blocked.html'), 403
-
-        except Exception as e:
-            logger.error(f"AI error: {e}")
-
-    log_event(ip, url_path, "NORMAL", "ALLOW")
-
-# ==========================================================
-# 🌐 Routes
-# ==========================================================
-@app.route('/')
-def index():
-    if 'user' in session:
-        if session['role'] == 'admin':
-            return redirect(url_for('dashboard'))
-        return render_template('home.html', user=session['user'], ip=get_client_ip())
-    return redirect(url_for('login'))
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        user = (request.form.get('user') or "").strip()
-        pwd = (request.form.get('pass') or "").strip()
-
-        if user == 'admin' and pwd == '123':
-            session['user'], session['role'] = user, 'admin'
-            return redirect(url_for('dashboard'))
-
-        elif user == 'user' and pwd == '123':
-            session['user'], session['role'] = user, 'user'
-            return render_template('home.html', user=user, ip=get_client_ip())
-
-        return render_template('login.html', error="Invalid Credentials")
-
-    return render_template('login.html')
-
-@app.route('/dashboard')
-def dashboard():
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
-    stats, recent_logs = parse_waap_logs(limit=15)
-    return render_template('dashboard.html', stats=stats, logs=recent_logs)
-
-@app.route('/logs')
-def view_logs():
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
-    _, all_logs = parse_waap_logs()
-    return render_template('logs.html', logs=all_logs)
-
-@app.route('/blocked')
-def blocked():
-    return render_template('blocked.html'), 403
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-# ==========================================================
-# 🚀 Run App
-# ==========================================================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=5000)
