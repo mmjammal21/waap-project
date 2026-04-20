@@ -10,11 +10,11 @@
     <style>
         :root {
             --bg-dark: #0b0e14;
-            --card-bg: rgba(21, 27, 40, 0.7); /* شفافية للزجاج */
+            --card-bg: rgba(21, 27, 40, 0.7);
             --border: rgba(255, 255, 255, 0.08);
             --text-main: #e2e8f0;
             --text-muted: #94a3b8;
-            --accent: #6366f1; /* لون البنفسجي الأساسي */
+            --accent: #6366f1;
             --danger: #ef4444;
             --success: #10b981;
             --warning: #f59e0b;
@@ -24,27 +24,23 @@
         
         body {
             margin: 0; font-family: 'Outfit', sans-serif; background-color: var(--bg-dark); color: var(--text-main);
-            /* خلفية تقنية احترافية (خريطة العالم الرقمية) */
             background-image: url('https://assets.codepen.io/1462889/dotted-map.png');
             background-size: cover; background-position: center; background-attachment: fixed;
             height: 100vh; overflow: hidden;
         }
 
-        /* تظليل للخلفية عشان الكلام يبين */
         body::before {
             content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at center, rgba(11, 14, 20, 0.8) 0%, #0b0e14 100%);
             z-index: -1;
         }
 
-        /* --- الهيكل العام (Grid Layout) --- */
         .app-container {
             display: grid;
-            grid-template-columns: 240px 1fr; /* القائمة الجانبية + المحتوى */
+            grid-template-columns: 240px 1fr;
             height: 100vh;
         }
 
-        /* --- القائمة الجانبية (Sidebar) --- */
         .sidebar {
             background: rgba(15, 20, 30, 0.95); border-right: 1px solid var(--border);
             padding: 30px 20px; display: flex; flex-direction: column; gap: 30px;
@@ -61,7 +57,6 @@
         .menu-item.active { border-left: 3px solid var(--accent); }
         .menu-item i { width: 20px; text-align: center; }
 
-        /* --- المحتوى الرئيسي --- */
         .main-content { padding: 30px; overflow-y: auto; }
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
@@ -74,7 +69,6 @@
         }
         .dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
 
-        /* --- بطاقات الإحصائيات (Stats Cards) --- */
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
         .card {
             background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
@@ -87,19 +81,16 @@
         .card h3 { margin: 0; font-size: 13px; color: var(--text-muted); font-weight: 500; }
         .card .value { font-size: 28px; font-weight: 700; margin-top: 5px; color: #fff; }
 
-        /* ألوان البطاقات */
-        .bg-purple { background: rgba(99, 102, 241, 0.1); color: #818cf8; }
-        .bg-red { background: rgba(239, 68, 68, 0.1); color: #f87171; }
-        .bg-orange { background: rgba(245, 158, 11, 0.1); color: #fbbf24; }
-        .bg-green { background: rgba(16, 185, 129, 0.1); color: #34d399; }
+        .bg-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; }
+        .bg-red { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+        .bg-orange { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+        .bg-green { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
 
-        /* --- قسم الرسوم البيانية --- */
         .charts-section { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 30px; }
         .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 25px; height: 320px; }
         .chart-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
         .chart-title { font-size: 16px; font-weight: 600; }
 
-        /* --- الجدول (Logs Table) --- */
         .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
         .table-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
         
@@ -111,12 +102,11 @@
 
         .mono { font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 12px; }
 
-        /* Badges */
         .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
-        .badge-ai { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
-        .badge-sig { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
-        .badge-ddos { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
-        .badge-ok { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-ai { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); } 
+        .badge-sig { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); } 
+        .badge-ddos { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); } 
+        .badge-ok { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); } 
 
         @keyframes pulse { 0% { opacity: 0.5; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 100% { opacity: 1; box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); } }
     </style>
@@ -124,36 +114,31 @@
 <body>
 
 <div class="app-container">
-    
     <div class="sidebar">
         <div class="logo">
             <i class="fas fa-shield-virus"></i> WAAP<span style="color:#fff;">Sentinel</span>
         </div>
-        
         <div style="margin-top: 20px;">
             <div class="menu-label">Analytics</div>
             <a href="#" class="menu-item active"><i class="fas fa-chart-pie"></i> Dashboard</a>
             <a href="/logs" class="menu-item"><i class="fas fa-file-code"></i> System Logs</a>
-            
             <div class="menu-label" style="margin-top: 20px;">System</div>
             <a href="#" class="menu-item"><i class="fas fa-server"></i> Server Status</a>
             <a href="#" class="menu-item"><i class="fas fa-cogs"></i> Configuration</a>
         </div>
-
         <div style="margin-top: auto;">
             <a href="/logout" class="menu-item" style="color: var(--danger);"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </div>
 
     <div class="main-content">
-        
         <div class="header">
             <div class="page-title">
                 <h1>Security Overview</h1>
                 <p>Real-time threat monitoring & AI analysis</p>
             </div>
             <div class="live-indicator">
-                <div class="dot"></div> Live Monitoring (Auto-Refresh: 5s)
+                <div class="dot"></div> Live Monitoring (Auto-Refresh: 2s)
             </div>
         </div>
 
@@ -182,21 +167,12 @@
 
         <div class="charts-section">
             <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title">Threat Distribution</span>
-                </div>
-                <div style="height: 220px; position: relative;">
-                    <canvas id="threatChart"></canvas>
-                </div>
+                <div class="chart-header"><span class="chart-title">Threat Distribution</span></div>
+                <div style="height: 220px; position: relative;"><canvas id="threatChart"></canvas></div>
             </div>
-            
             <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title">Traffic Analysis (Allow vs Block)</span>
-                </div>
-                <div style="height: 220px; position: relative;">
-                    <canvas id="trafficChart"></canvas>
-                </div>
+                <div class="chart-header"><span class="chart-title">Traffic Analysis (Allow vs Block)</span></div>
+                <div style="height: 220px; position: relative;"><canvas id="trafficChart"></canvas></div>
             </div>
         </div>
 
@@ -222,67 +198,49 @@
                         <td>
                             {% if 'AI' in log.threat %}
                                 <span class="badge badge-ai"><i class="fas fa-robot"></i> {{ log.threat }}</span>
-                            {% elif 'SQL' in log.threat or 'XSS' in log.threat or 'LFI' in log.threat %}
-                                <span class="badge badge-sig"><i class="fas fa-code"></i> {{ log.threat }}</span>
-                            {% elif 'DDoS' in log.threat %}
+                            {% elif 'DDoS' in log.threat or 'DDOS' in log.threat %}
                                 <span class="badge badge-ddos"><i class="fas fa-bolt"></i> {{ log.threat }}</span>
+                            {% elif log.action == 'BLOCK' %}
+                                <span class="badge badge-sig"><i class="fas fa-shield-alt"></i> {{ log.threat }}</span>
                             {% else %}
                                 <span class="badge badge-ok"><i class="fas fa-check"></i> {{ log.threat }}</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if 'BLOCK' in log.action %}
-                                <span style="color: #ef4444; font-weight: 700; font-size: 12px;">BLOCKED</span>
-                            {% else %}
-                                <span style="color: #10b981; font-weight: 700; font-size: 12px;">ALLOWED</span>
-                            {% endif %}
+                            {% if 'BLOCK' in log.action %}<span style="color: #ef4444; font-weight: 700; font-size: 12px;">BLOCKED</span>
+                            {% else %}<span style="color: #10b981; font-weight: 700; font-size: 12px;">ALLOWED</span>{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
     </div>
 </div>
 
 <script>
-    // --- 1. كود التحديث التلقائي (Auto Refresh) ---
-    // يقوم بتحديث الصفحة كل 5000 ميلي ثانية (5 ثواني)
-    setTimeout(function(){
-       window.location.reload(1);
-    }, 5000);
-
-    // --- 2. إعدادات الرسوم البيانية ---
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = 'Outfit';
 
-    // رسم الدائرة (Threats)
     const ctx1 = document.getElementById('threatChart').getContext('2d');
-    new Chart(ctx1, {
+    const threatChart = new Chart(ctx1, {
         type: 'doughnut',
         data: {
-            labels: ['AI Model', 'SQL/XSS', 'DDoS'],
+            labels: ['AI Model', 'WAF Blocks', 'DDoS'],
             datasets: [{
                 data: [{{ stats['AI'] }}, {{ stats['SQLi'] + stats['XSS'] }}, {{ stats['DDoS'] }}],
                 backgroundColor: ['#a855f7', '#ef4444', '#f59e0b'],
-                borderWidth: 0,
-                hoverOffset: 10
+                borderWidth: 0, hoverOffset: 10
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%', // يجعل الدائرة أنحف وأشيك
-            plugins: {
-                legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } }
-            }
+        options: { 
+            responsive: true, maintainAspectRatio: false, cutout: '70%', 
+            plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } } } 
         }
     });
 
-    // رسم الأعمدة (Traffic)
     const ctx2 = document.getElementById('trafficChart').getContext('2d');
-    new Chart(ctx2, {
+    const trafficChart = new Chart(ctx2, {
         type: 'bar',
         data: {
             labels: ['Blocked Threats', 'Allowed Traffic'],
@@ -290,21 +248,70 @@
                 label: 'Requests',
                 data: [{{ stats['BLOCK'] }}, {{ stats['ALLOW'] }}],
                 backgroundColor: ['#ef4444', '#10b981'],
-                borderRadius: 5,
-                barThickness: 40
+                borderRadius: 5, barThickness: 40
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
-                x: { grid: { display: false } }
-            },
-            plugins: { legend: { display: false } }
+        options: { 
+            responsive: true, maintainAspectRatio: false, 
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } },
+            plugins: { legend: { display: false } } 
         }
     });
-</script>
 
+    async function refreshData() {
+        try {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            
+            document.querySelector('.stats-grid .card:nth-child(1) .value').innerText = data.stats.AI;
+            document.querySelector('.stats-grid .card:nth-child(2) .value').innerText = data.stats.SQLi + data.stats.XSS;
+            document.querySelector('.stats-grid .card:nth-child(3) .value').innerText = data.stats.DDoS;
+            document.querySelector('.stats-grid .card:nth-child(4) .value').innerText = data.stats.ALLOW;
+
+            threatChart.data.datasets[0].data = [data.stats.AI, data.stats.SQLi + data.stats.XSS, data.stats.DDoS];
+            threatChart.update();
+
+            trafficChart.data.datasets[0].data = [data.stats.BLOCK, data.stats.ALLOW];
+            trafficChart.update();
+
+            const tbody = document.querySelector('table tbody');
+            tbody.innerHTML = data.logs.map(log => {
+                let badgeClass = 'badge-ok';
+                let icon = 'fa-check';
+
+                // منطق تحديد الألوان اللحظي: الأولوية للـ AI والـ DDoS ثم الحظر العام
+                if (log.threat.includes('AI')) {
+                    badgeClass = 'badge-ai';
+                    icon = 'fa-robot';
+                } else if (log.threat.includes('DDOS') || log.threat.includes('DDoS')) {
+                    badgeClass = 'badge-ddos';
+                    icon = 'fa-bolt';
+                } else if (log.action === 'BLOCK') {
+                    badgeClass = 'badge-sig';
+                    icon = 'fa-shield-alt';
+                }
+
+                return `
+                <tr>
+                    <td class="mono">${log.time}</td>
+                    <td class="mono">${log.ip}</td>
+                    <td>
+                        <span class="badge ${badgeClass}">
+                            <i class="fas ${icon}"></i> ${log.threat}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="color: ${log.action === 'BLOCK' ? '#ef4444' : '#10b981'}; font-weight: 700; font-size: 12px;">
+                            ${log.action === 'BLOCK' ? 'BLOCKED' : 'ALLOWED'}
+                        </span>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        } catch(e) { console.error("Sync error:", e); }
+    }
+
+    setInterval(refreshData, 2000);
+</script>
 </body>
 </html>

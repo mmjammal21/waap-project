@@ -13,7 +13,6 @@
         .header { background: #0a0a0a; padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
         h1 { margin: 0; font-size: 20px; color: var(--text); text-transform: uppercase; letter-spacing: 2px; }
         
-        /* زر العودة الخرافي */
         .btn-back {
             background: transparent; color: var(--text); border: 1px solid var(--text);
             padding: 10px 20px; text-decoration: none; font-size: 14px; text-transform: uppercase;
@@ -29,11 +28,12 @@
         tr:hover { background: var(--row-hover); }
 
         /* تلوين الحالات */
-        .status-block { color: #ff4d4d; text-shadow: 0 0 5px #ff4d4d; }
-        .status-allow { color: #00ff00; text-shadow: 0 0 5px #00ff00; }
+        .status-block { color: #ff4d4d; text-shadow: 0 0 5px #ff4d4d; font-weight: bold; }
+        .status-allow { color: #00ff00; text-shadow: 0 0 5px #00ff00; font-weight: bold; }
         
-        .threat-ai { color: #d8b4fe; }
-        .threat-sql { color: #ffab91; }
+        .threat-ai { color: #d8b4fe; } /* بنفسجي */
+        .threat-sig { color: #ffab91; } /* أحمر فاتح */
+        .threat-ddos { color: #fbbf24; } /* أصفر */
         
         /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
@@ -56,7 +56,6 @@
                     <tr>
                         <th>TIMESTAMP (JOR)</th>
                         <th>SOURCE IP</th>
-                        <th>REQUEST URL</th>
                         <th>DETECTION TYPE</th>
                         <th>STATUS</th>
                     </tr>
@@ -64,19 +63,27 @@
                 <tbody>
                     {% for log in logs %}
                     <tr>
-                        <td>{{ log.time }}</td>
-                        <td>{{ log.ip }}</td>
-                        <td style="color:#888; max-width: 300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ log.url }}</td>
+                        <td class="mono">{{ log.time }}</td>
+                        <td class="mono">{{ log.ip }}</td>
                         
                         <td>
-                            {% if 'AI' in log.threat %}<span class="threat-ai">[🤖 AI_MODEL]</span>
-                            {% elif 'SQL' in log.threat or 'XSS' in log.threat %}<span class="threat-sql">[🔥 SIGNATURE]</span>
-                            {% elif 'DDoS' in log.threat %}<span style="color:orange">[⚡ RATE_LIMIT]</span>
-                            {% else %}<span style="color:#666">[NORMAL]</span> {{ log.threat }}{% endif %}
+                            {% if log.action == 'BLOCK' %}
+                                {% if 'AI' in log.threat %}
+                                    <span class="threat-ai">[🤖 AI_MODEL]</span>
+                                {% elif 'DDoS' in log.threat or 'DDOS' in log.threat %}
+                                    <span class="threat-ddos">[⚡ RATE_LIMIT]</span>
+                                {% else %}
+                                    <span class="threat-sig">[🔥 SIGNATURE]</span>
+                                {% endif %}
+                                <span style="font-size: 11px; opacity: 0.8; color: #ff4d4d;">{{ log.threat }}</span>
+                            {% else %}
+                                <span style="color:#6ee7b7">[✅ SAFE_AUTH]</span>
+                                <span style="font-size: 11px; opacity: 0.7;">{{ log.threat }}</span>
+                            {% endif %}
                         </td>
 
-                        <td class="{{ 'status-block' if 'BLOCK' in log.action else 'status-allow' }}">
-                            {{ log.action }}
+                        <td class="{{ 'status-block' if log.action == 'BLOCK' else 'status-allow' }}">
+                            {{ 'BLOCKED' if log.action == 'BLOCK' else 'ALLOWED' }}
                         </td>
                     </tr>
                     {% endfor %}
