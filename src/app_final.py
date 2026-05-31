@@ -6,18 +6,15 @@ import re
 import math
 import sqlite3
 import hashlib
-import io  # إضافة مكتبة للتعامل مع ملفات الذاكرة
+import io  
 import pandas as pd
 import numpy as np
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_file # إضافة send_file للتصدير
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_file 
 from collections import defaultdict, deque
 from urllib.parse import unquote
 from datetime import datetime, timedelta, timezone 
 from pyngrok import ngrok 
 
-# ==========================================================
-# 📂 إعدادات المسارات (نظام كالي لينكس)
-# ==========================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
@@ -27,11 +24,9 @@ os.makedirs(LOG_DIR, exist_ok=True)
 MODEL_PATH = os.path.join(DATA_DIR, 'waap_model.pkl')
 LOG_FILE = os.path.join(LOG_DIR, "waap.log")
 
-# --- 1. تحسين التيرمينال: إسكات السجلات المزعجة ---
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 logging.getLogger('pyngrok').setLevel(logging.ERROR)
 
-# --- 2. إعدادات الوقت الأردني (نظام 12 ساعة) ---
 class JordanFormatter(logging.Formatter):
     def format(self, record):
         tz_jordan = timezone(timedelta(hours=3))
@@ -48,9 +43,6 @@ logging.basicConfig(level=logging.INFO, handlers=[handler, stream])
 app = Flask(__name__)
 app.secret_key = "WAAP_GATEWAY_PROJECT_2026_JUST"
 
-# ==========================================================
-# 🧠 تحميل محرك الذكاء الاصطناعي V8.0
-# ==========================================================
 try:
     model = joblib.load(MODEL_PATH)
     label_encoder = joblib.load(os.path.join(DATA_DIR, 'label_encoder.pkl'))
@@ -59,14 +51,9 @@ try:
 except Exception as e:
     logging.error(f"0.0.0.0 | LOAD_ERROR | {e}")
 
-# ==========================================================
-# 🔐 وظائف حماية الهوية (SHA-256 & SQLite)
-# ==========================================================
 def verify_user(username, password):
-    """التحقق من المستخدم عبر قاعدة البيانات بتشفير SHA-256"""
     hashed_input = hashlib.sha256(password.encode()).hexdigest()
     db_path = os.path.join(DATA_DIR, "users.db")
-    
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -78,14 +65,10 @@ def verify_user(username, password):
         logging.error(f"DATABASE_ERROR: {e}")
         return None
 
-# ==========================================================
-# 🛠️ محرك الإحصائيات (تعديل: إظهار جميع الحركات بما فيها الـ SUCCESS)
-# ==========================================================
 def get_live_data():
     stats = {'AI': 0, 'SQLi': 0, 'XSS': 0, 'DDoS': 0, 'ALLOW': 0, 'BLOCK': 0}
     security_events = [] 
     if not os.path.exists(LOG_FILE): return stats, []
-    
     try:
         with open(LOG_FILE, "r") as f:
             lines = f.readlines()
@@ -96,7 +79,6 @@ def get_live_data():
                     threat_type = parts[2].strip()
                     action = parts[3].strip()
                     timestamp = parts[0].strip()
-
                     if action == "BLOCK":
                         stats['BLOCK'] += 1
                         if "SQL" in threat_type: stats['SQLi'] += 1
@@ -105,8 +87,6 @@ def get_live_data():
                         else: stats['AI'] += 1
                     elif action == "ALLOW":
                         stats['ALLOW'] += 1
-
-                    # التعديل هنا: تمت إزالة شرط "SUCCESS" لكي تظهر جميع الحركات في الجدول
                     if threat_type not in ["SAFE_TRAFFIC", "SYSTEM_READY"]:
                         security_events.append({
                             'time': timestamp,
@@ -116,12 +96,8 @@ def get_live_data():
                         })
     except Exception as e:
         print(f"Read Error: {e}")
-        
     return stats, security_events[-15:][::-1]
 
-# ==========================================================
-# 🛑 أنظمة الحماية (Signatures & DDoS)
-# ==========================================================
 def check_signatures(payload):
     sigs = [
         r"(\'|\"|%27|%22)\s+(or|and)\s+([\'\"]?\d+[\'\"]?\s*=\s*[\'\"]?\d+)", 
@@ -140,9 +116,6 @@ def is_rate_limited(ip):
     window.append(current_time)
     return False
 
-# ==========================================================
-# 🔍 استخراج ميزات AI
-# ==========================================================
 def calculate_entropy(text):
     if not text: return 0
     entropy = 0
@@ -166,9 +139,6 @@ def extract_features_v8(path, query, body):
     }
     return pd.DataFrame([features])[model_columns]
 
-# ==========================================================
-# 🛡️ حارس الأمن (Middleware)
-# ==========================================================
 @app.before_request
 def security_check():
     if request.path in ['/health', '/blocked', '/logout', '/dashboard', '/logs', '/api/stats', '/add_user', '/export_report', '/api/latest_alert'] or request.path.startswith('/static/'):
@@ -197,9 +167,10 @@ def security_check():
         try:
             f_df = extract_features_v8(request.path, query, body)
             probs = model.predict_proba(f_df)[0]
+            ai_confidence = float(max(probs) * 100)
             if (probs[1] + probs[2]) >= 0.70:
                 is_malicious = True
-                threat = "AI_ANOMALY"
+                threat = f"AI_ANOMALY ({ai_confidence:.1f}%)"
         except: pass
 
     if is_malicious:
@@ -209,9 +180,6 @@ def security_check():
     if request.path in ['/', '/login'] and request.method == 'POST':
         return 
 
-# ==========================================================
-# 🌐 المسارات والـ API
-# ==========================================================
 @app.route('/api/stats')
 def api_stats():
     stats, logs_list = get_live_data()

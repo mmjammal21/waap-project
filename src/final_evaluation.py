@@ -43,7 +43,7 @@ def run_test():
 
     test_data = []
     
-    # --- التأكد من قراءة الملفات بدقة ---
+    
     sqli_path = "../data/sqli.txt"
     xss_path = "../data/xss.txt"
 
@@ -61,7 +61,7 @@ def run_test():
             for line in lines[:500]:
                 if line.strip(): test_data.append({'payload': line.strip(), 'true_label': 'Web_Attack'})
 
-    # إضافة عينات Benign حقيقية (عشان نرفع الـ Recall)
+    
     benign_list = ["/index.php", "/login.html", "/contact", "/about-us", "/api/v1/status", "/static/css/bootstrap.min.css"]
     for b in benign_list * 100:
         test_data.append({'payload': b, 'true_label': 'Benign'})
@@ -79,12 +79,12 @@ def run_test():
         if col not in features_df.columns:
             features_df[col] = 0
 
-    # التنبوء
+    
     print("⚡ AI Engine is analyzing...")
     y_pred_numeric = model.predict(features_df[model_columns])
     y_pred_names = encoder.inverse_transform(y_pred_numeric)
     
-    # تنظيف الأسماء لضمان المطابقة
+    
     y_pred_names = [str(n).strip() for n in y_pred_names]
     y_true_names = df['true_label'].astype(str).tolist()
 
@@ -93,7 +93,7 @@ def run_test():
     print(f"🏆 FINAL SCIENTIFIC ACCURACY: {acc*100:.2f}%")
     print("="*45)
     
-    # طباعة التقرير مع معالجة الأسماء المفقودة
+    
     print(classification_report(y_true_names, y_pred_names, zero_division=0))
 
 if __name__ == "__main__":
