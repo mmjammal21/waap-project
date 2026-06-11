@@ -35,7 +35,7 @@ def extract_features(payload):
     }
 
 def run_test():
-    print("🚀 Sentinel V8.0: Starting Final Evaluation...")
+    print("Sentinel V8.0: Starting Final Evaluation...")
     
     model = joblib.load("../data/waap_model.pkl")
     encoder = joblib.load("../data/label_encoder.pkl")
@@ -50,14 +50,14 @@ def run_test():
     if os.path.exists(sqli_path):
         with open(sqli_path, "r", errors='ignore') as f:
             lines = f.readlines()
-            print(f"📦 Loaded {len(lines[:500])} SQLi samples")
+            print(f"Loaded {len(lines[:500])} SQLi samples")
             for line in lines[:500]:
                 if line.strip(): test_data.append({'payload': line.strip(), 'true_label': 'Web_Attack'})
             
     if os.path.exists(xss_path):
         with open(xss_path, "r", errors='ignore') as f:
             lines = f.readlines()
-            print(f"📦 Loaded {len(lines[:500])} XSS samples")
+            print(f"Loaded {len(lines[:500])} XSS samples")
             for line in lines[:500]:
                 if line.strip(): test_data.append({'payload': line.strip(), 'true_label': 'Web_Attack'})
 
@@ -71,7 +71,7 @@ def run_test():
         print("❌ Error: No data loaded. Check your .txt files path!")
         return
 
-    print("🧠 Extracting math features...")
+    print("Extracting math features...")
     features_list = df['payload'].apply(extract_features)
     features_df = pd.DataFrame(list(features_list))
 
@@ -80,7 +80,7 @@ def run_test():
             features_df[col] = 0
 
     
-    print("⚡ AI Engine is analyzing...")
+    print("AI Engine is analyzing...")
     y_pred_numeric = model.predict(features_df[model_columns])
     y_pred_names = encoder.inverse_transform(y_pred_numeric)
     
@@ -90,7 +90,7 @@ def run_test():
 
     acc = accuracy_score(y_true_names, y_pred_names)
     print("\n" + "="*45)
-    print(f"🏆 FINAL SCIENTIFIC ACCURACY: {acc*100:.2f}%")
+    print(f"FINAL SCIENTIFIC ACCURACY: {acc*100:.2f}%")
     print("="*45)
     
     

@@ -281,7 +281,7 @@ if __name__ == '__main__':
     ngrok.set_auth_token(TOKEN)
     try:
         public_url = ngrok.connect(addr="https://localhost:5000", proto="http", bind_tls=True).public_url
-        print(f"\n🚀 SYSTEM LIVE VIA NGINX: {public_url}\n")
-    except Exception as e: print(f"⚠️ Ngrok Warning: {e}")
+        print(f"\nSYSTEM LIVE VIA NGINX: {public_url}\n")
+    except Exception as e: print(f"Ngrok Warning: {e}")
     cert_path, key_path = os.path.join(PROJECT_ROOT, 'nginx', 'nginx-selfsigned.crt'), os.path.join(PROJECT_ROOT, 'nginx', 'nginx-selfsigned.key')
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False, ssl_context=(cert_path, key_path))
